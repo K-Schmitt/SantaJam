@@ -1,0 +1,2 @@
+pygame==2.6.1
+-e git+ssh://git@github.com/K-Schmitt/SantaJam.git@ac0e6e75d6a38e399b7dd2aa6b6e62888979b0c9#egg=SantaJam
