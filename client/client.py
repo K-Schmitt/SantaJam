@@ -288,7 +288,7 @@ class Game:
     def start_online_mode(self):
         self.is_solo = False
         try:
-            self.tcp_client = TCPClient('127.0.0.1', 12353, self)
+            self.tcp_client = TCPClient('127.0.0.1', 12345, self)
             self.tcp_client.connect()
         except Exception as e:
             print(f"[CLIENT] Connection error: {e}")

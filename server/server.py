@@ -101,7 +101,7 @@ class TCPServer(TCPConnection):
         return self.rooms[room_id]
 
 def main():
-    tcp_server = TCPServer('0.0.0.0', 12353)
+    tcp_server = TCPServer('0.0.0.0', 12345)
     tcp_server.start()
 
 
