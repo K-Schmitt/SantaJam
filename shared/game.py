@@ -18,22 +18,23 @@ class Game:
         self.energy_timer = 0  # Timer pour la génération d'énergie
         self.game_over = False
         self.winner = None  # 'att' ou 'def' en multi, None en solo
+        self.pending_zombies = []  # Liste des zombies à spawner [(type, row, offset, spawn_time), ...]
         if is_solo:
+            self.game_duration = 0  # Temps écoulé depuis le début de la partie
+            self.zombie_wave_interval = 30  # Intervalle entre les vagues (en secondes)
+            self.last_wave_time = 0
+            self.difficulty_level = 1  # Niveau de difficulté initial
             self.zombie_types = ['basic', 'cone', 'bucket']
-            self.count_zombies = 0
 
     def update(self, delta_time: float, current_time: int = None) -> None:
         if self.game_over:
             return
 
         # Gestion du spawn de zombies en solo
+        self.game_duration += delta_time
+
         if self.is_solo and current_time is not None:
-            if self.count_zombies >= 15:
-                self.count_zombies = 0
-            if current_time - self.last_zombie_spawn > self.zombie_spawn_interval - self.count_zombies * 0.3:
-                self.add_zombie(self.zombie_types[int(self.count_zombies * 0.2)], random.randint(0, GRID_HEIGHT - 1))
-                self.last_zombie_spawn = current_time
-                self.count_zombies += 1
+            self.handle_zombie_spawn(current_time)
 
         # Gestion de l'énergie pour les zombies (en mode non-solo)
         if not self.is_solo:
@@ -43,6 +44,13 @@ class Game:
                 self.energy_timer = 0
                 self.energy = min(self.energy, 999)  # Limite maximum
 
+        # Gestion des zombies en attente de spawn
+        if current_time is not None:
+            for pending in self.pending_zombies[:]:
+                if current_time >= pending[3]:  # Si le temps de spawn est atteint
+                    self.add_zombie(pending[0], pending[1], pending[2])
+                    self.pending_zombies.remove(pending)
+
         # Update all plants and collect sun points
         for plant in self.plants:
             result = plant.update(delta_time, self.zombies)  # Passage des zombies à la méthode update
@@ -51,20 +59,25 @@ class Game:
             elif result is not None:  # Si c'est un projectile
                 self.projectiles.append(result)
 
-        # Update projectiles
+        # Update projectiles - Modification avec vérification supplémentaire
         for proj in self.projectiles[:]:
+            if proj not in self.projectiles:  # Vérifier si le projectile existe toujours
+                continue
             proj.update(delta_time)
             # Vérifier les collisions avec les zombies
             for zombie in self.zombies[:]:
+                if zombie not in self.zombies:  # Vérifier si le zombie existe toujours
+                    continue
                 if (proj.row == zombie.row and 
                     abs(proj.col - zombie.col) < 0.5):
                     zombie.health -= proj.damage
-                    self.projectiles.remove(proj)
+                    if proj in self.projectiles:  # Vérification supplémentaire
+                        self.projectiles.remove(proj)
                     self.last_hit = True
-                    if zombie.health <= 0:
+                    if zombie.health <= 0 and zombie in self.zombies:  # Vérification supplémentaire
                         self.zombies.remove(zombie)
                     break
-            if proj.col >= GRID_WIDTH:
+            if proj in self.projectiles and proj.col >= GRID_WIDTH:  # Vérification supplémentaire
                 self.projectiles.remove(proj)
 
         # Update all zombies and handle plant interactions
@@ -98,11 +111,68 @@ class Game:
 
         # Limite maximum de points de soleil
         self.sun_points = min(self.sun_points, 999)
+        
+    def handle_zombie_spawn(self, current_time: int) -> None:
+        # Augmenter la difficulté au fil du temps
+        self.adjust_difficulty()
+
+        # Gestion des vagues de zombies
+        if current_time - self.last_wave_time >= self.zombie_wave_interval:
+            self.spawn_zombie_wave(current_time)
+            self.last_wave_time = current_time
+        else:
+            # Spawn normal entre les vagues
+            if current_time - self.last_zombie_spawn > self.zombie_spawn_interval:
+                zombie_type = self.choose_zombie_type()
+                row = random.randint(0, GRID_HEIGHT - 1)
+                self.add_zombie(zombie_type, row)
+                self.last_zombie_spawn = current_time
+
+    def adjust_difficulty(self) -> None:
+        # Augmenter le niveau de difficulté toutes les 60 secondes
+        self.difficulty_level = 1 + int(self.game_duration // 60)
+
+        # Réduire l'intervalle de spawn
+        self.zombie_spawn_interval = max(2, 7 - 0.5 * self.difficulty_level)
+
+        # Ajouter des types de zombies avancés au fur et à mesure
+        # if self.difficulty_level >= 3 and 'fast' not in self.zombie_types:
+        #     self.zombie_types.append('fast')
+        # if self.difficulty_level >= 5 and 'tank' not in self.zombie_types:
+        #     self.zombie_types.append('tank')
+
+    def choose_zombie_type(self) -> str:
+        # Probabilité pondérée en fonction du niveau de difficulté
+        weights = {
+            'basic': max(1, 10 - self.difficulty_level * 2),
+            'cone': max(1, 5 - self.difficulty_level),
+            'bucket': max(1, self.difficulty_level - 2),
+        }
+        available_zombies = [(zombie, weight) for zombie, weight in weights.items() if zombie in self.zombie_types]
+        total_weight = sum(weight for _, weight in available_zombies)
+        rand_choice = random.uniform(0, total_weight)
+        current = 0
+
+        for zombie, weight in available_zombies:
+            current += weight
+            if rand_choice <= current:
+                return zombie
+        return 'basic'
+
+    def spawn_zombie_wave(self, current_time: int) -> None:
+        # Générer une vague de zombies
+        wave_size = 5 + self.difficulty_level * 2
+        for i in range(wave_size):
+            zombie_type = self.choose_zombie_type()
+            row = random.randint(0, GRID_HEIGHT - 1)
+            # Programme le spawn du zombie avec 2s de délai initial + petit délai entre chaque zombie
+            spawn_time = current_time + 2 + (i * 0.3)
+            self.pending_zombies.append((zombie_type, row, i * 0.3, spawn_time))
 
     def get_game_state(self) -> Dict[str, Any]:
         return {
             'plants': sorted([plant.to_dict() for plant in self.plants], key=lambda p: p['row']),
-            'zombies': [zombie.to_dict() for zombie in self.zombies],
+            'zombies': sorted([zombie.to_dict() for zombie in self.zombies], key=lambda z: (z['row'], z['col'])),
             'projectiles': [proj.to_dict() for proj in self.projectiles],
             'sun_points': self.sun_points,
             'energy': self.energy,
@@ -131,7 +201,7 @@ class Game:
         self.sun_points -= new_plant.cost
         return True
 
-    def add_zombie(self, zombie_type: str, row: int) -> bool:
+    def add_zombie(self, zombie_type: str, row: int, initial_offset: float = 0) -> bool:
         if zombie_type not in ZOMBIE_TYPES:
             print(f"[GAME] Invalid zombie type: {zombie_type}")
             return False
@@ -147,7 +217,7 @@ class Game:
             print(f"[GAME] Invalid row: {row}")
             return False
 
-        new_zombie = Zombie(zombie_type, row)
+        new_zombie = Zombie(zombie_type, row, initial_offset)
         self.zombies.append(new_zombie)
         if not self.is_solo:
             self.energy -= cost

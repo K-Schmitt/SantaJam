@@ -64,10 +64,10 @@ class Plant:
         return 0
 
 class Zombie:
-    def __init__(self, zombie_type: str, row: int):
+    def __init__(self, zombie_type: str, row: int, initial_offset: float = 0):
         self.type = zombie_type
         self.row = row
-        self.col = float(GRID_WIDTH)  # Position en float pour un mouvement fluide
+        self.col = float(GRID_WIDTH) + initial_offset  # Ajout du décalage initial
         self.health = ZOMBIE_TYPES[zombie_type]['health']
         self.speed = ZOMBIE_TYPES[zombie_type]['speed']
         self.attack_damage = ZOMBIE_TYPES[zombie_type]['damage']
