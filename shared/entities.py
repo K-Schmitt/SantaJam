@@ -10,6 +10,7 @@ class Plant:
         self.cost = PLANT_TYPES[plant_type]['cost']
         self.sun_timer = 0
         self.shoot_timer = 0
+        self.ready_to_harvest = False  # Nouveau flag
 
     def has_zombie_in_front(self, zombies: list) -> bool:
         for zombie in zombies:
@@ -18,12 +19,11 @@ class Plant:
         return False
 
     def update(self, delta_time: float, zombies: list = None) -> Any:
-        if self.type == 'sunflower':
+        if self.type == 'candycane':
             self.sun_timer += delta_time
-            if self.sun_timer >= 5.0:
-                self.sun_timer = 0
-                return 25
-
+            if self.sun_timer >= 5.0 and not self.ready_to_harvest:
+                self.ready_to_harvest = True
+                
         elif self.type == 'peashooter':
             self.shoot_timer += delta_time
             if self.shoot_timer >= 1.0 and zombies and self.has_zombie_in_front(zombies):
@@ -36,7 +36,8 @@ class Plant:
             'type': self.type,
             'row': self.row,
             'col': self.col,
-            'health': self.health
+            'health': self.health,
+            'ready_to_harvest': self.ready_to_harvest  # Ajout du flag
         }
 
     def take_damage(self, damage: int) -> None:
@@ -44,6 +45,14 @@ class Plant:
         
     def is_dead(self) -> bool:
         return self.health <= 0
+
+    def harvest(self):
+        """Récolter l'énergie du tournesol"""
+        if self.ready_to_harvest:
+            self.ready_to_harvest = False
+            self.sun_timer = 0
+            return 25
+        return 0
 
 class Zombie:
     def __init__(self, zombie_type: str, row: int):
@@ -56,12 +65,13 @@ class Zombie:
         self.attack_speed = ZOMBIE_TYPES[zombie_type]['attack_speed']
         self.attack_timer = 0
         self.eating = False  # Ajout d'un état pour suivre si le zombie mange
+        self.id = id(self)  # Ajouter un ID unique
         
     def update(self, delta_time: float, plant_in_front: Plant = None) -> None:
         if plant_in_front:
             # Ajuste la position du zombie pour qu'il soit à droite de la plante
             if not self.eating:
-                self.col = plant_in_front.col + 1
+                # self.col = plant_in_front.col + 1
                 self.eating = True
             
             # Attaque la plante
@@ -78,8 +88,9 @@ class Zombie:
         return {
             'type': self.type,
             'row': self.row,
-            'col': int(self.col),  # Convertit en int pour l'affichage
-            'health': self.health
+            'col': self.col,  # Convertit en int pour l'affichage
+            'health': self.health,
+            'id': self.id  # Ajouter l'ID au dictionnaire
         }
 
 class Projectile:

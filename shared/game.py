@@ -10,17 +10,22 @@ class Game:
         self.sun_points = 50
         self.grid = [[None for _ in range(GRID_WIDTH)] for _ in range(GRID_HEIGHT)]
         self.projectiles: List[Projectile] = []  # Ajout de la liste des projectiles
-        self.selected_plant = 'sunflower'  # Plante sélectionnée par défaut
+        self.selected_plant = 'candycane'  # Plante sélectionnée par défaut
         self.is_solo = is_solo
         self.last_zombie_spawn = 0
         self.zombie_spawn_interval = 7  # 7 secondes
         self.energy = 50  # Énergie initiale pour les zombies
         self.energy_timer = 0  # Timer pour la génération d'énergie
+        self.game_over = False
+        self.winner = None  # 'att' ou 'def' en multi, None en solo
         if is_solo:
             self.zombie_types = ['basic', 'cone', 'bucket']
             self.count_zombies = 0
 
     def update(self, delta_time: float, current_time: int = None) -> None:
+        if self.game_over:
+            return
+
         # Gestion du spawn de zombies en solo
         if self.is_solo and current_time is not None:
             if self.count_zombies >= 15:
@@ -55,6 +60,7 @@ class Game:
                     abs(proj.col - zombie.col) < 0.5):
                     zombie.health -= proj.damage
                     self.projectiles.remove(proj)
+                    self.last_hit = True
                     if zombie.health <= 0:
                         self.zombies.remove(zombie)
                     break
@@ -66,9 +72,9 @@ class Game:
             # Trouve la plante la plus proche devant le zombie
             plant_in_front = None
             for plant in self.plants:
-                if (plant.row == zombie.row and 
+                if (plant.row == zombie.row and
                     plant.col <= zombie.col and  # Changé de > à <= pour détecter les plantes à gauche
-                    plant.col >= int(zombie.col) - 1 and  # Ajout d'une zone de collision
+                    plant.col >= int(zombie.col) - 0.2 and  # Ajout d'une zone de collision
                     (plant_in_front is None or plant.col > plant_in_front.col)):
                     plant_in_front = plant
 
@@ -78,6 +84,10 @@ class Game:
             # Vérifie si un zombie est sorti de l'écran
             if zombie.col < -1:
                 self.zombies.remove(zombie)
+                self.game_over = True
+                if not self.is_solo:
+                    self.winner = 'att'
+                break
 
         # Retire les plantes mortes
         for plant in self.plants[:]:
@@ -95,9 +105,12 @@ class Game:
             'zombies': [zombie.to_dict() for zombie in self.zombies],
             'projectiles': [proj.to_dict() for proj in self.projectiles],
             'sun_points': self.sun_points,
-            'energy': self.energy,  # Ajouter l'énergie au game state
+            'energy': self.energy,
             'grid': self.grid,
-            'available_plants': list(PLANT_TYPES.keys())
+            'available_plants': [p for p in PLANT_TYPES.keys() if p != 'shovel'],  # Filtrer la pelle
+            'game_over': self.game_over,
+            'winner': self.winner,
+            'last_hit': self.last_hit if hasattr(self, 'last_hit') else False
         }
 
     def add_plant(self, plant_type: str, row: int, col: int) -> bool:
@@ -140,3 +153,30 @@ class Game:
             self.energy -= cost
         print(f"[GAME] Added zombie {zombie_type} at row {row}, remaining energy: {self.energy}")
         return True
+
+    def remove_plant(self, row: int, col: int) -> bool:
+        if row < 0 or row >= GRID_HEIGHT or col < 0 or col >= GRID_WIDTH:
+            print(f"[GAME] Invalid position for removal: {row}, {col}")
+            return False
+            
+        plant = self.grid[row][col]
+        if plant is None:
+            print(f"[GAME] No plant at position: {row}, {col}")
+            return False
+            
+        refund = int(plant.cost * 0.5)  # Remboursement fixe de 50%
+        self.sun_points += refund
+        self.grid[row][col] = None
+        self.plants.remove(plant)
+        print(f"[GAME] Removed plant at {row}, {col}. Refunded {refund} sun points")
+        return True
+
+    def harvest_candycane(self, row: int, col: int) -> bool:
+        """Récolter un tournesol à la position donnée"""
+        for plant in self.plants:
+            if plant.row == row and plant.col == col and plant.type == 'candycane':
+                points = plant.harvest()
+                if points > 0:
+                    self.sun_points += points
+                    return True
+        return False

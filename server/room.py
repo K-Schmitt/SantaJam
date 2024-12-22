@@ -73,6 +73,8 @@ class Room:
             # Enregistrer les handlers
             self.udp_server.register_handler("ADD_PLANT:", self.handle_game_action)
             self.udp_server.register_handler("ADD_ZOMBIE:", self.handle_game_action)
+            self.udp_server.register_handler("REMOVE_PLANT:", self.handle_game_action)  # Ajouter ce handler
+            self.udp_server.register_handler("HARVEST_SUNFLOWER:", self.handle_game_action)
             self.udp_server.start()
         except OSError as e:
             print(f"[ROOM] Could not start UDP server on port {udp_port}: {e}")
@@ -108,17 +110,18 @@ class Room:
             current_time = time.time()
             delta_time = current_time - last_time
             
-            if delta_time >= 1.0/self.tick_rate:  # Mise à jour fixe
-                # Update game state
-                self.game.update(delta_time)  # Delta time fixe
-
-                # Envoyer l'état du jeu aux clients
+            if delta_time >= 1.0/self.tick_rate:
+                self.game.update(delta_time)
                 game_state = self.game.get_game_state()
-                # self.broadcast_udp(f"GAME_STATE:{game_state}")
-
+                
+                # Si le jeu est terminé, envoyer l'état final à tous les clients
+                if game_state.get('game_over', False):
+                    self.broadcast_udp(f"GAME_STATE:{game_state}")
+                    break
+                
                 last_time = current_time
             else:
-                time.sleep(0.001)  # Petit délai pour éviter de surcharger le CPU
+                time.sleep(0.001)
 
         print(f"[ROOM] Game loop ended in room {self.room_id}")
         self.game_running = False
@@ -142,6 +145,35 @@ class Room:
             if success:
                 # Broadcast l'action à tous les clients
                 self.broadcast_udp(action)
+        elif action.startswith("REMOVE_PLANT:"):
+            # Vérifier si le client est le défenseur
+            if self.udp_server.roles.get(client_id) != "def":
+                print(f"[ROOM] Client {client_id} is not authorized to remove plants")
+                return
+            
+            _, row, col = action.split(":")
+            success = self.game.remove_plant(int(row), int(col))
+            print(f"[ROOM] Player {client_id} removed plant at {row},{col} with success: {success}")
+            if success:
+                # Broadcast l'action à tous les clients
+                self.broadcast_udp(action)
+        elif action.startswith("HARVEST_SUNFLOWER:"):
+            if self.udp_server.roles.get(client_id) != "def":
+                print(f"[ROOM] Client {client_id} is not authorized to harvest candycanes")
+                return
+                
+            _, row, col = action.split(":")
+            row, col = int(row), int(col)
+            
+            # Trouver le tournesol et le récolter
+            for plant in self.game.plants:
+                if plant.row == row and plant.col == col and plant.type == 'candycane':
+                    sun_points = plant.harvest()
+                    if sun_points > 0:
+                        self.game.sun_points += sun_points
+                        # Broadcast l'action à tous les clients
+                        self.broadcast_udp(action)
+                    break
 
     def get_game_state(self):
         return {
