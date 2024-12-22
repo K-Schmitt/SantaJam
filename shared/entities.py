@@ -11,6 +11,7 @@ class Plant:
         self.sun_timer = 0
         self.shoot_timer = 0
         self.ready_to_harvest = False  # Nouveau flag
+        self.shooting = False  # Nouvel attribut pour suivre l'état de tir
 
     def has_zombie_in_front(self, zombies: list) -> bool:
         for zombie in zombies:
@@ -21,24 +22,32 @@ class Plant:
     def update(self, delta_time: float, zombies: list = None) -> Any:
         if self.type == 'candycane':
             self.sun_timer += delta_time
-            if self.sun_timer >= 5.0 and not self.ready_to_harvest:
+            if self.sun_timer >= 2.0 and not self.ready_to_harvest:
                 self.ready_to_harvest = True
                 
         elif self.type == 'peashooter':
             self.shoot_timer += delta_time
-            if self.shoot_timer >= 1.0 and zombies and self.has_zombie_in_front(zombies):
+            has_zombie = zombies and self.has_zombie_in_front(zombies)
+            
+            if self.shoot_timer >= 1.0 and has_zombie:
                 self.shoot_timer = 0
-                return Projectile(self.row, self.col + 1)
+                self.shooting = True
+                return Projectile(self.row, self.col)
+            elif self.shoot_timer >= 0.3:  # Réduit le temps avant de reset l'état de tir
+                self.shooting = False
         return None
 
     def to_dict(self) -> dict:
-        return {
+        base_dict = {
             'type': self.type,
             'row': self.row,
             'col': self.col,
             'health': self.health,
             'ready_to_harvest': self.ready_to_harvest  # Ajout du flag
         }
+        if self.type == 'peashooter':
+            base_dict['shooting'] = self.shooting  # Ajouter l'état de tir
+        return base_dict
 
     def take_damage(self, damage: int) -> None:
         self.health -= damage
@@ -51,7 +60,7 @@ class Plant:
         if self.ready_to_harvest:
             self.ready_to_harvest = False
             self.sun_timer = 0
-            return 25
+            return 50
         return 0
 
 class Zombie:

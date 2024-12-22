@@ -96,6 +96,7 @@ class Menu:
     def __init__(self, game):
         self.game = game
         self.volume_slider_rect = pygame.Rect(300, 275, 200, 20)
+        self.volume_slider_rect2 = pygame.Rect(300, 250, 200, 20)
         self.sfx_volume_slider_rect = pygame.Rect(300, 350, 200, 20)
         self.current_menu = "main"
         self.input_text = ""
@@ -140,7 +141,6 @@ class Menu:
         # Options menu
         self.sound_toggle_button = Button(300, 200, 200, 50, "Son: Activé")
         self.back_to_main_button = Button(300, 400, 200, 50, "Retour")
-        self.volume_slider_rect = pygame.Rect(300, 250, 200, 20)
         self.sfx_volume_slider_rect = pygame.Rect(300, 350, 200, 20)
 
         # Initialiser le volume pour tous les boutons
@@ -203,19 +203,27 @@ class Menu:
 
         elif event.type == pygame.MOUSEBUTTONUP:
             if event.button == 1:  # Clic gauche
-                if (self.current_menu == "options" or self.game.paused) and self.volume_slider_rect.collidepoint(event.pos):
+                if self.current_menu == "options" and self.volume_slider_rect.collidepoint(event.pos):
                     # Mettre à jour le volume une dernière fois
                     rel_x = (event.pos[0] - self.volume_slider_rect.x) / self.volume_slider_rect.width
                     self.game.set_volume(rel_x)
-                elif (self.current_menu == "options" or self.game.paused) and self.sfx_volume_slider_rect.collidepoint(event.pos):
+                elif self.game.paused and self.volume_slider_rect2.collidepoint(event.pos):
+                    # Mettre à jour le volume une dernière fois
+                    rel_x = (event.pos[0] - self.volume_slider_rect2.x) / self.volume_slider_rect2.width
+                    self.game.set_volume(rel_x)
+                elif self.current_menu == "options" and self.sfx_volume_slider_rect.collidepoint(event.pos):
                     rel_x = (event.pos[0] - self.sfx_volume_slider_rect.x) / self.sfx_volume_slider_rect.width
                     self.game.set_sfx_volume(rel_x)
 
         elif event.type == pygame.MOUSEMOTION:
             if event.buttons[0]:  # Si le bouton gauche est maintenu
-                if (self.current_menu == "options" or self.game.paused) and self.volume_slider_rect.collidepoint(event.pos):
+                if self.current_menu == "options" and self.volume_slider_rect.collidepoint(event.pos):
                     # Mettre à jour le volume pendant le glissement
                     rel_x = (event.pos[0] - self.volume_slider_rect.x) / self.volume_slider_rect.width
+                    self.game.set_volume(rel_x)
+                elif self.game.paused and self.volume_slider_rect2.collidepoint(event.pos):
+                    # Mettre à jour le volume pendant le glissement
+                    rel_x = (event.pos[0] - self.volume_slider_rect2.x) / self.volume_slider_rect2.width
                     self.game.set_volume(rel_x)
                 elif (self.current_menu == "options" or self.game.paused) and self.sfx_volume_slider_rect.collidepoint(event.pos):
                     rel_x = (event.pos[0] - self.sfx_volume_slider_rect.x) / self.sfx_volume_slider_rect.width
@@ -309,20 +317,11 @@ class Game:
         self.images = {
             'background': pygame.Surface((800, 600)),
             'grid_cell': pygame.Surface((80, 80)),
-            'candycane': pygame.Surface((60, 60)),
-            'peashooter': pygame.Surface((60, 60)),
-            'wallnut': pygame.Surface((60, 60)),
-            'basic_zombie': pygame.Surface((60, 60)),
         }
 
         # Définir des couleurs temporaires pour les surfaces
         self.images['background'] = pygame.image.load('client/assets/background.png')
         self.images['grid_cell'].fill((80, 140, 80))   # Vert clair
-        self.images['peashooter'] = pygame.transform.scale(pygame.image.load('client/assets/peashooter.gif'), (80, 80))
-        self.images['wallnut'] = pygame.transform.scale(pygame.image.load('client/assets/wallnut.png'), (80, 80))
-        self.images['basic'] = pygame.transform.scale(pygame.image.load('client/assets/basic.png'), (80, 140))
-        self.images['cone'] = pygame.transform.scale(pygame.image.load('client/assets/cone.png'), (80, 140))
-        self.images['bucket'] = pygame.transform.scale(pygame.image.load('client/assets/bucket.png'), (80, 140))
         self.images['sprinter'] = pygame.transform.scale(pygame.image.load('client/assets/sprinter.png'), (80, 140))
         self.selected_plant = 'candycane'
         self.plant_buttons = []
@@ -333,9 +332,25 @@ class Game:
         self.images['candycane_ready'] = pygame.Surface((80, 80), pygame.SRCALPHA)
         # Copier la partie gauche pour l'état inactif
         self.images['candycane'].blit(candycane_sprite, (0, 0), (0, 0, 80, 80))
+        self.images['candycane'] = pygame.transform.scale(self.images['candycane'], (100, 100))
         # Copier la partie droite pour l'état actif
         self.images['candycane_ready'].blit(candycane_sprite, (0, 0), (80, 0, 160, 80))
+        self.images['candycane_ready'] = pygame.transform.scale(self.images['candycane_ready'], (100, 100))
 
+        # Modification du chargement de l'image icewall
+        icewall_sprite = pygame.image.load('client/assets/icewall.png')
+        # Créer des surfaces avec canal alpha pour les deux états
+        self.images['icewall'] = pygame.Surface((80, 140), pygame.SRCALPHA)
+        self.images['icewall_hit'] = pygame.Surface((80, 140), pygame.SRCALPHA)
+        # Copier la partie gauche pour l'état normal
+        self.images['icewall'].blit(icewall_sprite, (0, 0), (0, 0, 80, 140))
+        self.images['icewall'] = pygame.transform.scale(self.images['icewall'], (120, 140))
+        # Copier la partie droite pour l'état touché
+        self.images['icewall_hit'].blit(icewall_sprite, (0, 0), (80, 0, 160, 140))
+        self.images['icewall_hit'] = pygame.transform.scale(self.images['icewall_hit'], (120, 140))
+
+        # Ajouter un dictionnaire pour suivre l'état des icewalls
+        self.icewall_states = {}  # {(row, col): {'hit_time': time}}
 
         # Ajouter une image pour les projectiles
         self.images['pea'] = pygame.Surface((20, 20))
@@ -378,6 +393,56 @@ class Game:
         self.waiting_font = pygame.font.Font(None, 74)
         self.waiting_text = self.waiting_font.render("En attente d'un autre joueur...", True, (255, 255, 255))
         self.waiting_rect = self.waiting_text.get_rect(center=(400, 300))
+
+        # Modification du chargement de l'image cone
+        cone_sprite = pygame.image.load('client/assets/cone.png')
+        self.images['cone'] = []  # Liste pour stocker les frames d'animation
+        # Découper le sprite sheet en 3 frames
+        for i in range(3):
+            frame = pygame.Surface((80, 80), pygame.SRCALPHA)
+            frame.blit(cone_sprite, (0, 0), (i * 80, 0, 80, 80))
+            frame = pygame.transform.scale(frame, (130, 140))  # Redimensionner
+            self.images['cone'].append(frame)
+
+        # Ajouter un dictionnaire pour suivre l'état d'animation des zombies
+        self.zombie_animations = {}  # {zombie_id: {'frame': 0, 'timer': 0}}
+        self.animation_speed = 0.2  # Secondes par frame
+
+        # Après l'initialisation de self.icewall_states
+        self.ICEWALL_HIT_DURATION = 0.3  # Durée de l'animation de hit
+        self.ICEWALL_HIT_COOLDOWN = 1.0  # Délai minimum entre deux animations
+
+        # Modification du chargement de l'image basic
+        basic_sprite = pygame.image.load('client/assets/basic.png')
+        self.images['basic'] = []  # Liste pour stocker les frames d'animation
+        # Découper le sprite sheet en 4 frames
+        for i in range(4):
+            frame = pygame.Surface((80, 140), pygame.SRCALPHA)
+            frame.blit(basic_sprite, (0, 0), (i * 80, 0, 80, 140))
+            frame = pygame.transform.scale(frame, (120, 210))  # Redimensionner
+            self.images['basic'].append(frame)
+            
+        bucket_sprite = pygame.image.load('client/assets/basic.png')
+        self.images['bucket'] = []  # Liste pour stocker les frames d'animation
+        # Découper le sprite sheet en 4 frames
+        for i in range(4):
+            frame = pygame.Surface((80, 140), pygame.SRCALPHA)
+            frame.blit(basic_sprite, (0, 0), (i * 80, 0, 80, 140))
+            frame = pygame.transform.scale(frame, (120, 210))  # Redimensionner
+            self.images['bucket'].append(frame)
+
+        # Modification du chargement de l'image peashooter
+        peashooter_sprite = pygame.image.load('client/assets/shooter.png')
+        self.images['peashooter'] = []  # Liste pour stocker les frames d'animation
+        # Découper le sprite sheet en 5 frames
+        for i in range(5):
+            frame = pygame.Surface((80, 80), pygame.SRCALPHA)
+            frame.blit(peashooter_sprite, (0, 0), (i * 80, 0, 80, 80))
+            frame = pygame.transform.scale(frame, (120, 120))
+            self.images['peashooter'].append(frame)
+
+        # Ajouter un dictionnaire pour suivre l'état des peashooters
+        self.peashooter_states = {}  # {(row, col): {'shooting': bool, 'frame': int, 'last_update': time}}
 
     def play_music(self, music):
         if self.current_music != music:
@@ -456,109 +521,103 @@ class Game:
         # Dessiner le fond
         self.screen.blit(self.images['background'], (0, 0))
 
-        # Dessiner les cellules de la grille
-        # for row in range(GRID_HEIGHT):
-        #     for col in range(GRID_WIDTH):
-        #         x = self.grid_start_x + (col * self.cell_size)
-        #         y = self.grid_start_y + (row * self.cell_size)
-        #         # self.screen.blit(self.images['grid_cell'], (x, y))
-        #         pygame.draw.rect(self.screen, (70, 140, 70), (x, y, self.cell_size, self.cell_size), 1)
-
-        # Si nous avons un état de jeu, dessiner les entités
+        # Dessiner les entités si le jeu est en cours
         if self.game_state:
-            # Dessiner les plantes
-            for plant in self.game_state.get('plants', []):
-                x = self.grid_start_x + (plant['col'] * self.cell_size) + 5
-                y = self.grid_start_y + (plant['row'] * self.cell_size) + 5
+            self.draw_plants()
+            self.draw_zombies()
+            self.draw_projectiles()
 
-                # Utiliser l'image appropriée selon l'état du candycane
-                if plant['type'] == 'candycane':
-                    if plant.get('ready_to_harvest', False):
-                        plant_image = self.images['candycane_ready']
-                        glow_surface = pygame.Surface((self.cell_size, self.cell_size), pygame.SRCALPHA)
-                        pygame.draw.circle(glow_surface, (255, 215, 0, 128),
-                                        (self.cell_size//2, self.cell_size//2), self.cell_size//2)
-                        self.screen.blit(glow_surface, (x, y))
-                    else:
-                        plant_image = self.images['candycane']
-                else:
-                    plant_image = self.images.get(plant['type'], self.images['candycane'])
+        # Afficher les ressources selon le rôle
+        self.draw_resources()
 
-                self.screen.blit(plant_image, (x, y))
+        # Dessiner les boutons pour attaquant ou défenseur
+        self.draw_buttons()
 
-            # Dessiner les zombies
-            current_time = time.time()
-            alpha = min(1.0, (current_time - self.prev_update_time) * self.server_tick_rate)
+        # Afficher le message de fin de jeu si nécessaire
+        self.draw_end_game_message()
 
-            # Dessiner les zombies avec interpolation
-            if self.prev_game_state:
-                # Utiliser row et col comme identifiants de secours si pas d'ID
-                prev_zombies = {(z.get('id', f"{z['row']}_{z['col']}"), z['row']): z
-                            for z in self.prev_game_state.get('zombies', [])}
-                current_zombies = {(z.get('id', f"{z['row']}_{z['col']}"), z['row']): z
-                                for z in self.game_state.get('zombies', [])}
+    def draw_plants(self):
+        """Dessine les plantes sur la grille."""
+        for plant in self.game_state.get('plants', []):
+            x = self.grid_start_x + (plant['col'] * self.cell_size) - 15
+            y = self.grid_start_y + (plant['row'] * self.cell_size) - 15
 
-                for (z_id, row), zombie in current_zombies.items():
-                    prev_zombie = prev_zombies.get((z_id, row))
-                    if prev_zombie:
-                        # Interpoler la position
-                        prev_col = prev_zombie['col']
-                        curr_col = zombie['col']
-                        interp_col = prev_col + (curr_col - prev_col) * alpha
 
-                        x = self.grid_start_x + (interp_col * self.cell_size) + 5
-                        y = self.grid_start_y + ((zombie['row'] - 1) * self.cell_size) + 5
-                        zombie_image = self.images[f'{zombie["type"]}']
-                        self.screen.blit(zombie_image, (x, y))
-                    else:
-                        # Nouveau zombie, pas d'interpolation
-                        x = self.grid_start_x + (zombie['col'] * self.cell_size) + 5
-                        y = self.grid_start_y + (zombie['row'] * self.cell_size) + 5
-                        zombie_image = self.images[f'{zombie["type"]}']
-                        self.screen.blit(zombie_image, (x, y))
+            if plant['type'] == 'candycane':
+                plant_image = self.images['candycane_ready'] if plant.get('ready_to_harvest', False) else self.images['candycane']
+                if plant.get('ready_to_harvest', False):
+                    self.draw_glow(x, y)
+            elif plant['type'] == 'icewall':
+                plant_image = self.get_icewall_image(plant)
+                y -= 20
+            elif plant['type'] == 'peashooter':
+                plant_image = self.get_peashooter_image(plant)
             else:
-                # Si pas d'état précédent, dessiner sans interpolation
-                for zombie in self.game_state.get('zombies', []):
-                    x = self.grid_start_x + (zombie['col'] * self.cell_size) + 5
-                    y = self.grid_start_y + (zombie['row'] * self.cell_size) + 5
-                    zombie_image = self.images[f'{zombie["type"]}']
-                    self.screen.blit(zombie_image, (x, y))
+                continue
+            self.screen.blit(plant_image, (x, y))
 
-        # Dessiner les projectiles
+    def draw_zombies(self):
+        """Dessine les zombies avec interpolation."""
+        current_time = time.time()
+        alpha = min(1.0, (current_time - self.prev_update_time) * self.server_tick_rate)
+
+        if self.prev_game_state:
+            prev_zombies = {(z.get('id', f"{z['row']}_{z['col']}"), z['row']): z for z in self.prev_game_state.get('zombies', [])}
+            current_zombies = {(z.get('id', f"{z['row']}_{z['col']}"), z['row']): z for z in self.game_state.get('zombies', [])}
+
+            for (z_id, row), zombie in current_zombies.items():
+                prev_zombie = prev_zombies.get((z_id, row))
+                if prev_zombie:
+                    x, y = self.interpolate_zombie_position(prev_zombie, zombie, alpha)
+                    if prev_zombie['type'] == 'cone':
+                        y -= 20
+                else:
+                    x = self.grid_start_x + (zombie['col'] * self.cell_size) + 5
+                    y = self.grid_start_y + ((zombie['row'] - 1) * self.cell_size)
+
+                zombie_image = self.get_zombie_image(zombie, z_id)
+                self.screen.blit(zombie_image, (x, y))
+        else:
+            for zombie in self.game_state.get('zombies', []):
+                x = self.grid_start_x + (zombie['col'] * self.cell_size) + 5
+                y = self.grid_start_y + ((zombie['row'] - 1) * self.cell_size)
+                zombie_image = self.get_zombie_image(zombie)
+                self.screen.blit(zombie_image, (x, y))
+
+    def draw_projectiles(self):
+        """Dessine les projectiles."""
         for proj in self.game_state.get('projectiles', []):
-            x = self.grid_start_x + (proj['col'] * self.cell_size) + 25
+            x = self.grid_start_x + (proj['col'] * self.cell_size) + 55
             y = self.grid_start_y + (proj['row'] * self.cell_size) + 25
             self.screen.blit(self.images['pea'], (x, y))
 
+    def draw_resources(self):
+        """Affiche les ressources (énergie ou points de soleil) en haut de l'écran."""
+        font = pygame.font.Font(None, 36)
         if self.is_attacker:
-            # Interface attaquant
-            if self.game_state:
-                # Afficher l'énergie au lieu du soleil
-                font = pygame.font.Font(None, 36)
-                energy_text = font.render(f"Energy: {self.game_state.get('energy', 0)}", True, (255, 0, 0))
-                self.screen.blit(energy_text, (20, 20))
+            energy_text = font.render(f"Energy: {self.game_state.get('energy', 0)}", True, (255, 0, 0))
+            self.screen.blit(energy_text, (20, 20))
+        else:
+            sun_text = font.render(f"CandyCane: {self.game_state.get('sun_points', 0)}", True, (255, 255, 0))
+            self.screen.blit(sun_text, (20, 20))
 
-            # Dessiner les boutons de zombies
+    def draw_buttons(self):
+        """Dessine les boutons pour attaquant ou défenseur."""
+        if self.is_attacker:
             self.create_zombie_buttons()
             for zombie_type, btn in self.zombie_buttons:
                 btn.draw(self.screen)
                 if zombie_type == self.selected_zombie:
                     pygame.draw.rect(self.screen, (255, 0, 0), btn.rect, 3)
         else:
-            if self.game_state:
-            # Afficher les points de soleil
-                font = pygame.font.Font(None, 36)
-                sun_text = font.render(f"CandyCane: {self.game_state.get('sun_points', 0)}", True, (255, 255, 0))
-                self.screen.blit(sun_text, (20, 20))
-
-            # Dessiner les boutons de plantes
             self.create_plant_buttons()
             for plant_type, btn in self.plant_buttons:
                 btn.draw(self.screen)
                 if plant_type == self.selected_plant:
                     pygame.draw.rect(self.screen, (255, 255, 0), btn.rect, 3)
 
-        # Dessiner le message de game over ou de victoire
+    def draw_end_game_message(self):
+        """Dessine le message de fin de jeu si nécessaire."""
         if self.game_state and self.game_state.get('game_over', False):
             font = pygame.font.Font(None, 74)
             if self.is_solo:
@@ -571,6 +630,113 @@ class Game:
             if text:
                 text_rect = text.get_rect(center=(400, 300))
                 self.screen.blit(text, text_rect)
+    
+    def draw_glow(self, x, y):
+        """Dessine un effet de lueur autour d'une plante prête à être récoltée."""
+        glow_surface = pygame.Surface((self.cell_size, self.cell_size), pygame.SRCALPHA)
+        pygame.draw.circle(glow_surface, (255, 215, 0, 128), (self.cell_size // 2, self.cell_size // 2), self.cell_size // 2)
+        self.screen.blit(glow_surface, (x + 15, y + 15))
+
+
+    def get_icewall_image(self, plant):
+        """Renvoie l'image appropriée pour une IceWall, avec animation en cas d'attaque."""
+        current_time = time.time()
+        plant_key = (plant['row'], plant['col'])
+
+        # Initialisation de l'état si nécessaire
+        if plant_key not in self.icewall_states:
+            self.icewall_states[plant_key] = {
+                'hit_time': 0,
+                'last_hit': 0,
+                'is_being_eaten': False,
+            }
+
+        state = self.icewall_states[plant_key]
+        is_being_eaten = any(
+            zombie['row'] == plant['row'] and abs(zombie['col'] - plant['col']) <= 1
+            for zombie in self.game_state.get('zombies', [])
+        )
+
+        # Gérer l'état d'attaque
+        if not self.paused and not self.game_state.get('game_over', False):
+            if is_being_eaten and (current_time - state['last_hit'] > self.ICEWALL_HIT_COOLDOWN):
+                state['hit_time'] = current_time
+                state['last_hit'] = current_time
+                return self.images['icewall_hit']
+            elif current_time - state['hit_time'] < self.ICEWALL_HIT_DURATION:
+                return self.images['icewall_hit']
+
+        # Retour à l'état normal
+        return self.images['icewall']
+
+
+    def get_peashooter_image(self, plant):
+        """Renvoie l'image animée d'un Peashooter selon son état."""
+        plant_key = (plant['row'], plant['col'])
+        current_time = time.time()
+
+        # S'assurer que self.images['peashooter'] est une liste
+        if not isinstance(self.images['peashooter'], list):
+            return self.images['peashooter']
+
+        # Initialisation de l'état si nécessaire
+        if plant_key not in self.peashooter_states:
+            self.peashooter_states[plant_key] = {
+                'shooting': False,
+                'frame': 0,
+                'last_update': current_time
+            }
+
+        state = self.peashooter_states[plant_key]
+        is_shooting = plant.get('shooting', False)
+
+        # Mettre à jour l'animation seulement si l'état change ou si on est en train de tirer
+        if not self.paused and not self.game_state.get('game_over', False):
+            if is_shooting and not state['shooting']:
+                # Démarrer une nouvelle animation
+                state['shooting'] = True
+                state['frame'] = 0
+                state['last_update'] = current_time
+            elif state['shooting']:
+                if current_time - state['last_update'] > 0.1:
+                    state['frame'] = (state['frame'] + 1) % len(self.images['peashooter'])
+                    state['last_update'] = current_time
+                    # Arrêter l'animation après un cycle complet
+                    if state['frame'] == 0:
+                        state['shooting'] = False
+
+        # Si on ne tire pas, utiliser la frame 0
+        if not state['shooting']:
+            return self.images['peashooter'][0]
+        
+        return self.images['peashooter'][state['frame']]
+
+
+    def get_zombie_image(self, zombie, z_id=None):
+        """Renvoie l'image appropriée pour un zombie, avec gestion de l'animation."""
+        if z_id and z_id not in self.zombie_animations:
+            self.zombie_animations[z_id] = {'frame': 0, 'timer': time.time()}
+
+        anim = self.zombie_animations.get(z_id, {'frame': 0, 'timer': time.time()})
+        if not self.paused and not self.game_state.get('game_over', False):
+            current_time = time.time()
+            if current_time - anim['timer'] > self.animation_speed:
+                anim['frame'] = (anim['frame'] + 1) % len(self.images[zombie['type']])
+                anim['timer'] = current_time
+
+        return self.images[zombie['type']][anim['frame']]
+
+
+    def interpolate_zombie_position(self, prev_zombie, curr_zombie, alpha):
+        """Interpole la position d'un zombie entre son état précédent et actuel."""
+        prev_col = prev_zombie['col']
+        curr_col = curr_zombie['col']
+        interp_col = prev_col + (curr_col - prev_col) * alpha
+
+        x = self.grid_start_x + (interp_col * self.cell_size) + 5
+        y = self.grid_start_y + ((curr_zombie['row']) * self.cell_size) - 50
+        return x, y
+
 
     def draw_pause_menu(self):
         # Assombrir l'écran de jeu
@@ -599,13 +765,13 @@ class Game:
         sfx_text = font.render(f"Volume Effets: {int(self.sfx_volume * 100)}%", True, (255, 255, 255))
 
         # Dessiner les sliders
-        pygame.draw.rect(self.screen, (100, 100, 100), self.menu.volume_slider_rect)
+        pygame.draw.rect(self.screen, (100, 100, 100), self.menu.volume_slider_rect2)
         pygame.draw.rect(self.screen, (100, 100, 100), self.menu.sfx_volume_slider_rect)
 
         # Dessiner les positions actuelles des sliders
-        music_pos = self.menu.volume_slider_rect.x + (self.menu.volume_slider_rect.width * self.music_volume)
+        music_pos = self.menu.volume_slider_rect2.x + (self.menu.volume_slider_rect2.width * self.music_volume)
         sfx_pos = self.menu.sfx_volume_slider_rect.x + (self.menu.sfx_volume_slider_rect.width * self.sfx_volume)
-        pygame.draw.circle(self.screen, (255, 255, 255), (int(music_pos), self.menu.volume_slider_rect.centery), 10)
+        pygame.draw.circle(self.screen, (255, 255, 255), (int(music_pos), self.menu.volume_slider_rect2.centery), 10)
         pygame.draw.circle(self.screen, (255, 255, 255), (int(sfx_pos), self.menu.sfx_volume_slider_rect.centery), 10)
 
         self.screen.blit(music_text, (300, 225))
@@ -643,6 +809,7 @@ class Game:
         self.prev_game_state = None
         self.last_update = time.time()
         self.prev_update_time = time.time()
+        self.zombie_animations = {}  # Réinitialiser les animations
 
     def set_tcp_client(self, client):
         self.tcp_client = client
@@ -751,16 +918,8 @@ class Game:
                         return True
 
             # Si le jeu est terminé, permettre de retourner au menu avec ÉCHAP
-            if event.type == pygame.KEYDOWN and event.key == pygame.K_ESCAPE:
-                if self.game_state and self.game_state.get('game_over', False):
-                    self.in_game = False
-                    self.state = 1
-                    self.game_state = None
-                    self.menu.current_menu = "main"
-                    self.play_music(self.menu_music)
-                    return True
 
-            if not self.in_game:
+            if not self.in_game or self.paused:
                 self.menu.handle_event(event)
                 continue
 
@@ -836,6 +995,13 @@ class Game:
                                 # Code existant pour placer une plante
                                 if self.is_solo:
                                     plant_placed = self.game_instance.add_plant(self.selected_plant, row, col)
+                                    if plant_placed and self.selected_plant == 'icewall':
+                                        # Initialiser correctement l'état de l'icewall avec toutes les clés nécessaires
+                                        self.icewall_states[(row, col)] = {
+                                            'hit_time': 0,
+                                            'last_hit': 0,
+                                            'is_being_eaten': False
+                                        }
                                     if plant_placed:
                                         self.game_state = self.game_instance.get_game_state()
                                 elif self.online_game_started and self.tcp_client.udp_client:

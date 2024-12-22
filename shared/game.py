@@ -101,7 +101,7 @@ class Game:
 
     def get_game_state(self) -> Dict[str, Any]:
         return {
-            'plants': [plant.to_dict() for plant in self.plants],
+            'plants': sorted([plant.to_dict() for plant in self.plants], key=lambda p: p['row']),
             'zombies': [zombie.to_dict() for zombie in self.zombies],
             'projectiles': [proj.to_dict() for proj in self.projectiles],
             'sun_points': self.sun_points,

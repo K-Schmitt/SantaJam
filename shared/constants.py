@@ -4,7 +4,7 @@ GRID_HEIGHT = 5
 PLANT_TYPES = {
     'candycane': {'cost': 50, 'health': 100},
     'peashooter': {'cost': 50, 'health': 100},
-    'wallnut': {'cost': 50, 'health': 300},
+    'icewall': {'cost': 50, 'health': 300},
     'shovel': {'cost': 0, 'refund': 0.5},  # Rembourse 50% du coût de la plante
 }
 
