@@ -1,3 +1,4 @@
+import random  # Ajoutez cet import en haut du fichier
 from shared.protocol import UDPConnection
 from shared.game import Game  # Ajouter cet import
 import threading
@@ -11,6 +12,7 @@ class UDPServer(UDPConnection):
         self.running = True
         self.message_handlers = {}  # Dictionnaire des callbacks
         self.roles = {}
+        self.assigned_roles = set()  # Nouvel attribut pour suivre les rôles attribués
 
     def register_handler(self, message_type, handler):
         self.message_handlers[message_type] = handler
@@ -35,7 +37,16 @@ class UDPServer(UDPConnection):
                 if decoded_message.startswith("CONNECT:"):
                     client_id = decoded_message.split(":")[1]
                     self.client_addresses[client_id] = client_address
-                    role = "def" if len(self.client_addresses) == 1 else "att"
+                    
+                    # Nouvelle logique d'attribution des rôles
+                    if not self.assigned_roles:
+                        # Premier joueur : rôle aléatoire
+                        role = random.choice(["def", "att"])
+                    else:
+                        # Deuxième joueur : rôle opposé
+                        role = "att" if "def" in self.assigned_roles else "def"
+                    
+                    self.assigned_roles.add(role)
                     self.roles[client_id] = role
                     self.socket.sendto(f"ROLE:{role}".encode(), client_address)
                 else:
@@ -193,6 +204,7 @@ class Room:
 
     def remove_client(self, client_id):
         if client_id in self.clients:
+
             self.clients.remove(client_id)
             if len(self.clients) < 2:
                 self.game_running = False

@@ -353,8 +353,7 @@ class Game:
         self.icewall_states = {}  # {(row, col): {'hit_time': time}}
 
         # Ajouter une image pour les projectiles
-        self.images['pea'] = pygame.Surface((20, 20))
-        self.images['pea'].fill((0, 255, 0))  # Vert pour les pois
+        self.images['pea'] = pygame.transform.scale(pygame.image.load('client/assets/snowball.png'), (30, 30))
         self.images['energy_icon'] = pygame.Surface((30, 30))
         self.images['energy_icon'].fill((255, 0, 0))  # Rouge pour l'énergie
 
@@ -422,13 +421,13 @@ class Game:
             frame = pygame.transform.scale(frame, (120, 210))  # Redimensionner
             self.images['basic'].append(frame)
             
-        bucket_sprite = pygame.image.load('client/assets/basic.png')
+        bucket_sprite = pygame.image.load('client/assets/krampus.png')
         self.images['bucket'] = []  # Liste pour stocker les frames d'animation
         # Découper le sprite sheet en 4 frames
         for i in range(4):
             frame = pygame.Surface((80, 140), pygame.SRCALPHA)
-            frame.blit(basic_sprite, (0, 0), (i * 80, 0, 80, 140))
-            frame = pygame.transform.scale(frame, (120, 210))  # Redimensionner
+            frame.blit(bucket_sprite, (0, 0), (i * 80, 0, 80, 140))
+            frame = pygame.transform.scale(frame, (130, 220))  # Redimensionner
             self.images['bucket'].append(frame)
 
         # Modification du chargement de l'image peashooter
@@ -524,8 +523,8 @@ class Game:
         # Dessiner les entités si le jeu est en cours
         if self.game_state:
             self.draw_plants()
-            self.draw_zombies()
             self.draw_projectiles()
+            self.draw_zombies()
 
         # Afficher les ressources selon le rôle
         self.draw_resources()

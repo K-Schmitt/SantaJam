@@ -19,8 +19,8 @@ class Game:
         self.game_over = False
         self.winner = None  # 'att' ou 'def' en multi, None en solo
         self.pending_zombies = []  # Liste des zombies à spawner [(type, row, offset, spawn_time), ...]
+        self.game_duration = 0  # Temps écoulé depuis le début de la partie
         if is_solo:
-            self.game_duration = 0  # Temps écoulé depuis le début de la partie
             self.zombie_wave_interval = 30  # Intervalle entre les vagues (en secondes)
             self.last_wave_time = 0
             self.difficulty_level = 1  # Niveau de difficulté initial
