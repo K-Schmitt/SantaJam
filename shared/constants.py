@@ -3,22 +3,21 @@ GRID_HEIGHT = 5
 
 PLANT_TYPES = {
     'candycane': {'cost': 50, 'health': 100},
-    'peashooter': {'cost': 50, 'health': 100},
-    'icewall': {'cost': 50, 'health': 300},
-    'shovel': {'cost': 0, 'refund': 0.5},  # Rembourse 50% du coût de la plante
+    'peashooter': {'cost': 75, 'health': 100},
+    'icewall': {'cost': 75, 'health': 400},
+    'shovel': {'cost': 0, 'refund': 0.5},
 }
 
-# Ajouter les coûts d'énergie pour les zombies
 ZOMBIE_TYPES = {
     'basic': {
-        'health': 100,
+        'health': 150,
         'speed': 1,
         'damage': 10,
         'attack_speed': 1.0,
         'cost': 50
     },
     'cone': {
-        'health': 200,
+        'health': 250,
         'speed': 1,
         'damage': 10,
         'attack_speed': 1.0,
@@ -31,11 +30,11 @@ ZOMBIE_TYPES = {
         'attack_speed': 1.0,
         'cost': 100
     },
-    'sprinter': {
-        'health': 100,
-        'speed': 3,
-        'damage': 10,
-        'attack_speed': 1.0,
-        'cost': 75
-    },
+    # 'sprinter': {
+    #     'health': 100,
+    #     'speed': 3,
+    #     'damage': 10,
+    #     'attack_speed': 1.0,
+    #     'cost': 75
+    # },
 }

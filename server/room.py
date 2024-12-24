@@ -1,6 +1,6 @@
-import random  # Ajoutez cet import en haut du fichier
+import random
 from shared.protocol import UDPConnection
-from shared.game import Game  # Ajouter cet import
+from shared.game import Game
 import threading
 import time
 
@@ -10,9 +10,9 @@ class UDPServer(UDPConnection):
         self.socket.bind((self.host, self.port))
         self.client_addresses = {}
         self.running = True
-        self.message_handlers = {}  # Dictionnaire des callbacks
+        self.message_handlers = {}
         self.roles = {}
-        self.assigned_roles = set()  # Nouvel attribut pour suivre les rôles attribués
+        self.assigned_roles = set()
 
     def register_handler(self, message_type, handler):
         self.message_handlers[message_type] = handler
@@ -32,29 +32,24 @@ class UDPServer(UDPConnection):
                     continue
 
                 decoded_message = message.decode()
-                print(f"[UDP] Received from {client_address}: {decoded_message}")
+                # print(f"[UDP] Received from {client_address}: {decoded_message}")
 
                 if decoded_message.startswith("CONNECT:"):
                     client_id = decoded_message.split(":")[1]
                     self.client_addresses[client_id] = client_address
-                    
-                    # Nouvelle logique d'attribution des rôles
+
                     if not self.assigned_roles:
-                        # Premier joueur : rôle aléatoire
                         role = random.choice(["def", "att"])
                     else:
-                        # Deuxième joueur : rôle opposé
                         role = "att" if "def" in self.assigned_roles else "def"
-                    
+
                     self.assigned_roles.add(role)
                     self.roles[client_id] = role
                     self.socket.sendto(f"ROLE:{role}".encode(), client_address)
                 else:
-                    # Trouver le client_id à partir de l'adresse
                     client_id = next((cid for cid, addr in self.client_addresses.items()
                                     if addr == client_address), None)
                     if client_id:
-                        # Chercher et exécuter le bon handler
                         for msg_type, handler in self.message_handlers.items():
                             if decoded_message.startswith(msg_type):
                                 handler(decoded_message, client_id)
@@ -66,7 +61,7 @@ class UDPServer(UDPConnection):
 
     def broadcast_to_client(self, message, client_id):
         if client_id in self.client_addresses:
-            print(f"[UDP] Sending to {client_id}: {message}")
+            # print(f"[UDP] Sending to {client_id}: {message}")
             self.socket.sendto(message.encode(), self.client_addresses[client_id])
 
     def broadcast_to_all_clients(self, message):
@@ -81,10 +76,9 @@ class Room:
         self.clients = []
         try:
             self.udp_server = UDPServer(udp_host, udp_port)
-            # Enregistrer les handlers
             self.udp_server.register_handler("ADD_PLANT:", self.handle_game_action)
             self.udp_server.register_handler("ADD_ZOMBIE:", self.handle_game_action)
-            self.udp_server.register_handler("REMOVE_PLANT:", self.handle_game_action)  # Ajouter ce handler
+            self.udp_server.register_handler("REMOVE_PLANT:", self.handle_game_action)
             self.udp_server.register_handler("HARVEST_SUNFLOWER:", self.handle_game_action)
             self.udp_server.start()
         except OSError as e:
@@ -93,8 +87,8 @@ class Room:
         self.is_private = not room_id.startswith("public")
         self.game_thread = None
         self.game_running = False
-        self.tick_rate = 20  # Réduit à 20 FPS pour la synchro réseau
-        self.game = Game(is_solo=False)  # Ajouter l'instance de jeu
+        self.tick_rate = 20
+        self.game = Game(is_solo=False)
 
     def add_client(self, client_id):
         if len(self.clients) < 2:
@@ -112,24 +106,23 @@ class Room:
         print(f"[ROOM] Game started in room {self.room_id}")
 
     def game_loop(self):
-        time.sleep(1)  # Petit délai pour s'assurer que les clients sont connectés
+        time.sleep(1)
         self.broadcast_udp("STATE:2")
 
         last_time = time.time()
-        
+
         while self.game_running and len(self.clients) == 2:
             current_time = time.time()
             delta_time = current_time - last_time
-            
+
             if delta_time >= 1.0/self.tick_rate:
                 self.game.update(delta_time)
                 game_state = self.game.get_game_state()
-                
-                # Si le jeu est terminé, envoyer l'état final à tous les clients
+
                 if game_state.get('game_over', False):
                     self.broadcast_udp(f"GAME_STATE:{game_state}")
                     break
-                
+
                 last_time = current_time
             else:
                 time.sleep(0.001)
@@ -142,54 +135,46 @@ class Room:
             _, plant_type, row, col = action.split(":")
             success = self.game.add_plant(plant_type, int(row), int(col))
             if success:
-                # Broadcast l'action à tous les clients
                 self.broadcast_udp(action)
         elif action.startswith("ADD_ZOMBIE:"):
-            # Vérifier si le client est l'attaquant
             if self.udp_server.roles.get(client_id) != "att":
                 print(f"[ROOM] Client {client_id} is not authorized to add zombies")
                 return
-            
+
             _, zombie_type, row = action.split(":")
             success = self.game.add_zombie(zombie_type, int(row))
             print(f"[ROOM] Player {client_id} added zombie at {row} with success: {success}")
             if success:
-                # Broadcast l'action à tous les clients
                 self.broadcast_udp(action)
         elif action.startswith("REMOVE_PLANT:"):
-            # Vérifier si le client est le défenseur
             if self.udp_server.roles.get(client_id) != "def":
                 print(f"[ROOM] Client {client_id} is not authorized to remove plants")
                 return
-            
+
             _, row, col = action.split(":")
             success = self.game.remove_plant(int(row), int(col))
             print(f"[ROOM] Player {client_id} removed plant at {row},{col} with success: {success}")
             if success:
-                # Broadcast l'action à tous les clients
                 self.broadcast_udp(action)
         elif action.startswith("HARVEST_SUNFLOWER:"):
             if self.udp_server.roles.get(client_id) != "def":
                 print(f"[ROOM] Client {client_id} is not authorized to harvest candycanes")
                 return
-                
+
             _, row, col = action.split(":")
             row, col = int(row), int(col)
-            
-            # Trouver le tournesol et le récolter
+
             for plant in self.game.plants:
                 if plant.row == row and plant.col == col and plant.type == 'candycane':
                     sun_points = plant.harvest()
                     if sun_points > 0:
                         self.game.sun_points += sun_points
-                        # Broadcast l'action à tous les clients
                         self.broadcast_udp(action)
                     break
 
     def get_game_state(self):
         return {
             'players': self.clients,
-            # Ajouter d'autres états de jeu ici
         }
 
     def broadcast_game_state(self, game_state):

@@ -17,7 +17,7 @@ class TCPServer(TCPConnection):
         self.clients = {}
         self.rooms = {}
         self.next_udp_port = 12347
-        self.max_udp_port = 12447  # Limiter à 100 salles maximum
+        self.max_udp_port = 12447
 
     def start(self):
         print(f"TCP Server started on {self.host}:{self.port}")
@@ -41,7 +41,7 @@ class TCPServer(TCPConnection):
                 if not message:
                     print(f"[TCP] Client {client_id} disconnected")
                     break
-                
+
                 print(f"[TCP] Received from {client_id}: {message}")
                 if message.startswith("JOIN:"):
                     room_type = message.split(":")[1]
@@ -51,7 +51,7 @@ class TCPServer(TCPConnection):
             except Exception as e:
                 print(f"[TCP] Error handling client {client_id}: {e}")
                 break
-        
+
         self.cleanup_client(client_id, current_room)
 
     def handle_join_request(self, client_socket, client_id, room_type):
@@ -77,11 +77,11 @@ class TCPServer(TCPConnection):
                     self.close_room(current_room.room_id)
                 else:
                     current_room.broadcast_udp(f"SYSTEM:Client {client_id} disconnected")
-            
+
             if client_id in self.clients:
                 self.clients[client_id].close()
                 self.clients.pop(client_id)
-            
+
             print(f"[TCP] Client {client_id} cleanup completed")
         except Exception as e:
             print(f"[TCP] Error during cleanup: {e}")
@@ -93,7 +93,6 @@ class TCPServer(TCPConnection):
 
     def get_or_create_room(self, room_id):
         if room_id not in self.rooms:
-            # Chercher un port UDP disponible
             while self.next_udp_port < self.max_udp_port:
                 try:
                     self.rooms[room_id] = Room(room_id, '0.0.0.0', self.next_udp_port)

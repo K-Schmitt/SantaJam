@@ -18,35 +18,30 @@ class Button:
         self.text = text
         self.color = color
         self.font = pygame.font.Font(None, 36)
-        self.candy_cane_offset = 0  # Pour l'animation de la bordure
-        self.segment_length = 10    # Longueur de chaque segment de la bordure
+        self.candy_cane_offset = 0
+        self.segment_length = 10
         self.buttonClick = pygame.mixer.Sound('client/soundEffect/buttonclick.ogg')
-        self.buttonClick.set_volume(0.35)  # Volume par défaut
+        self.buttonClick.set_volume(0.35)
 
     def draw(self, screen):
-        # Dessiner le fond du bouton
         pygame.draw.rect(screen, self.color, self.rect)
-        
-        # Dessiner la bordure style sucre d'orge
         rect_points = [
-            (self.rect.left, self.rect.top),     # Haut gauche
-            (self.rect.right, self.rect.top),    # Haut droite
-            (self.rect.right, self.rect.bottom), # Bas droite
-            (self.rect.left, self.rect.bottom)   # Bas gauche
+            (self.rect.left, self.rect.top),
+            (self.rect.right, self.rect.top),
+            (self.rect.right, self.rect.bottom),
+            (self.rect.left, self.rect.bottom)
         ]
-        
-        for i in range(4):  # Pour chaque côté du rectangle
+
+        for i in range(4):
             start_pos = rect_points[i]
             end_pos = rect_points[(i + 1) % 4]
-            
-            # Calculer la longueur du côté
             length = ((end_pos[0] - start_pos[0])**2 + (end_pos[1] - start_pos[1])**2)**0.5
             num_segments = int(length / self.segment_length)
-            
+
             for j in range(num_segments):
                 start_ratio = j / num_segments
                 end_ratio = (j + 1) / num_segments
-                
+
                 seg_start = (
                     start_pos[0] + (end_pos[0] - start_pos[0]) * start_ratio,
                     start_pos[1] + (end_pos[1] - start_pos[1]) * start_ratio
@@ -55,22 +50,80 @@ class Button:
                     start_pos[0] + (end_pos[0] - start_pos[0]) * end_ratio,
                     start_pos[1] + (end_pos[1] - start_pos[1]) * end_ratio
                 )
-                
-                # Alterner entre rouge et blanc
+
                 color = (255, 0, 0) if (j + self.candy_cane_offset) % 2 >= 1 else (255, 255, 255)
                 pygame.draw.line(screen, color, seg_start, seg_end, 3)
 
-        # Dessiner le texte
         text_surface = self.font.render(self.text, True, (255, 255, 255))
         text_rect = text_surface.get_rect(center=self.rect.center)
         screen.blit(text_surface, text_rect)
-        
-        # Mettre à jour l'offset pour l'animation (optionnel)
+
         self.candy_cane_offset = (self.candy_cane_offset + 0.05) % 2
 
     def is_clicked(self, pos):
         if self.rect.collidepoint(pos):
-            self.buttonClick.play()  # Jouer le son quand le bouton est cliqué
+            self.buttonClick.play()
+            return True
+        return False
+
+class Card:
+    def __init__(self, x, y, entity_type, entity_group, cost):
+        self.rect = pygame.Rect(x, y, 85, 100)
+        self.entity_type = entity_type
+        self.entity_group = entity_group
+        self.cost = cost
+        self.sprite_rect = pygame.Rect(0, 0, 100, 100)
+        self.buttonClick = pygame.mixer.Sound('client/soundEffect/buttonclick.ogg')
+        self.buttonClick.set_volume(0.35)
+
+    def draw(self, screen, cards_image, is_selected, can_afford):
+        if self.entity_group == 'plant':
+            sprite_y = 0
+            if self.entity_type == 'candycane':
+                sprite_x = 0
+            elif self.entity_type == 'peashooter':
+                sprite_x = 100
+            elif self.entity_type == 'icewall':
+                sprite_x = 200
+            else:
+                sprite_x = 300
+        else:
+            sprite_y = 100
+            if self.entity_type == 'basic':
+                sprite_x = 0
+            elif self.entity_type == 'cone':
+                sprite_x = 100
+            elif self.entity_type == 'bucket':
+                sprite_x = 200
+            else:
+                sprite_x = 300
+
+        self.sprite_rect = pygame.Rect(sprite_x, sprite_y, 100, 100)
+        scaled_surface = pygame.Surface((80, 100), pygame.SRCALPHA)
+        temp_surface = pygame.Surface((100, 100), pygame.SRCALPHA)
+        temp_surface.blit(cards_image, (0, 0), self.sprite_rect)
+        scaled_surface = pygame.transform.scale(temp_surface, (85, 100))
+        screen.blit(scaled_surface, self.rect)
+
+        if is_selected:
+            color = (255, 255, 0) if self.entity_group == 'plant' else (255, 0, 0)
+            pygame.draw.rect(screen, color, self.rect, 3)
+
+        if not can_afford:
+            overlay = pygame.Surface((100, 100))
+            overlay.fill((0, 0, 0))
+            overlay.set_alpha(128)
+            screen.blit(overlay, self.rect)
+
+        font = pygame.font.Font(None, 36)
+        cost_text = font.render(str(self.cost), True, (255, 255, 255))
+        cost_rect = cost_text.get_rect(center=(self.rect.centerx, self.rect.bottom - 20))
+        screen.blit(cost_text, cost_rect)
+
+    def is_clicked(self, pos):
+        if self.rect.collidepoint(pos):
+            if hasattr(self, 'buttonClick'):
+                self.buttonClick.play()
             return True
         return False
 
@@ -108,6 +161,7 @@ class Menu:
         buttons = [
             self.play_button,
             self.options_button,
+            self.quit_button,
             self.solo_button,
             self.online_button,
             self.public_button,
@@ -122,28 +176,27 @@ class Menu:
                 button.buttonClick.set_volume(self.game.sfx_volume if self.game.sound_enabled else 0)
 
     def create_buttons(self):
-        # Main menu
-        self.play_button = Button(300, 250, 200, 50, "Jouer")
-        self.options_button = Button(300, 350, 200, 50, "Options")
+        self.play_button = Button(300, 200, 200, 50, "Jouer")
+        self.options_button = Button(300, 300, 200, 50, "Options")
+        self.quit_button = Button(300, 400, 200, 50, "Quitter")
 
-        # Mode selection menu
         self.solo_button = Button(300, 200, 200, 50, "Solo")
         self.online_button = Button(300, 300, 200, 50, "Online")
 
-        # Room selection menu
         self.public_button = Button(300, 200, 200, 50, "Public")
         self.private_button = Button(300, 300, 200, 50, "Privé")
         self.back_button = Button(300, 400, 200, 50, "Retour")
 
-        # Private room menu
         self.join_button = Button(300, 350, 200, 50, "Rejoindre")
 
-        # Options menu
+        self.resume_button = Button(300, 200, 200, 50, "Reprendre")
+        self.pause_options_button = Button(300, 300, 200, 50, "Options")
+        self.quit_to_menu_button = Button(300, 400, 200, 50, "Quitter")
+
         self.sound_toggle_button = Button(300, 200, 200, 50, "Son: Activé")
         self.back_to_main_button = Button(300, 400, 200, 50, "Retour")
         self.sfx_volume_slider_rect = pygame.Rect(300, 350, 200, 20)
 
-        # Initialiser le volume pour tous les boutons
         self.update_buttons_volume()
 
     def handle_event(self, event):
@@ -155,6 +208,9 @@ class Menu:
                     self.current_menu = "mode_selection"
                 elif self.options_button.is_clicked(mouse_pos):
                     self.current_menu = "options"
+                elif self.quit_button.is_clicked(mouse_pos):
+                    self.game.running = False
+                    return False
 
             elif self.current_menu == "mode_selection":
                 if self.solo_button.is_clicked(mouse_pos):
@@ -186,7 +242,6 @@ class Menu:
                 elif self.back_to_main_button.is_clicked(mouse_pos):
                     self.current_menu = "main"
                 elif self.volume_slider_rect.collidepoint(mouse_pos):
-                    # Calculer le nouveau volume basé sur la position X du clic
                     rel_x = (mouse_pos[0] - self.volume_slider_rect.x) / self.volume_slider_rect.width
                     self.game.set_volume(rel_x)
                 elif self.sfx_volume_slider_rect.collidepoint(mouse_pos):
@@ -202,13 +257,11 @@ class Menu:
                 self.input_text += event.unicode
 
         elif event.type == pygame.MOUSEBUTTONUP:
-            if event.button == 1:  # Clic gauche
+            if event.button == 1:
                 if self.current_menu == "options" and self.volume_slider_rect.collidepoint(event.pos):
-                    # Mettre à jour le volume une dernière fois
                     rel_x = (event.pos[0] - self.volume_slider_rect.x) / self.volume_slider_rect.width
                     self.game.set_volume(rel_x)
                 elif self.game.paused and self.volume_slider_rect2.collidepoint(event.pos):
-                    # Mettre à jour le volume une dernière fois
                     rel_x = (event.pos[0] - self.volume_slider_rect2.x) / self.volume_slider_rect2.width
                     self.game.set_volume(rel_x)
                 elif self.current_menu == "options" and self.sfx_volume_slider_rect.collidepoint(event.pos):
@@ -216,13 +269,11 @@ class Menu:
                     self.game.set_sfx_volume(rel_x)
 
         elif event.type == pygame.MOUSEMOTION:
-            if event.buttons[0]:  # Si le bouton gauche est maintenu
+            if event.buttons[0]:
                 if self.current_menu == "options" and self.volume_slider_rect.collidepoint(event.pos):
-                    # Mettre à jour le volume pendant le glissement
                     rel_x = (event.pos[0] - self.volume_slider_rect.x) / self.volume_slider_rect.width
                     self.game.set_volume(rel_x)
                 elif self.game.paused and self.volume_slider_rect2.collidepoint(event.pos):
-                    # Mettre à jour le volume pendant le glissement
                     rel_x = (event.pos[0] - self.volume_slider_rect2.x) / self.volume_slider_rect2.width
                     self.game.set_volume(rel_x)
                 elif (self.current_menu == "options" or self.game.paused) and self.sfx_volume_slider_rect.collidepoint(event.pos):
@@ -232,7 +283,6 @@ class Menu:
     def draw(self, screen):
         screen.fill((42, 21, 174))
 
-        # Mise à jour et dessin des flocons de neige
         for snowflake in self.snowflakes:
             snowflake.update()
             snowflake.draw(screen)
@@ -240,6 +290,7 @@ class Menu:
         if self.current_menu == "main":
             self.play_button.draw(screen)
             self.options_button.draw(screen)
+            self.quit_button.draw(screen)
 
         elif self.current_menu == "mode_selection":
             self.solo_button.draw(screen)
@@ -262,7 +313,6 @@ class Menu:
             self.sound_toggle_button.draw(screen)
             self.back_to_main_button.draw(screen)
 
-            # Dessiner le slider de volume
             pygame.draw.rect(screen, (100, 100, 100), self.volume_slider_rect)
             volume_pos = self.volume_slider_rect.x + (self.volume_slider_rect.width * self.game.music_volume)
             pygame.draw.circle(screen, (255, 255, 255), (int(volume_pos), self.volume_slider_rect.centery), 10)
@@ -271,7 +321,6 @@ class Menu:
             sfx_pos = self.sfx_volume_slider_rect.x + (self.sfx_volume_slider_rect.width * self.game.sfx_volume)
             pygame.draw.circle(screen, (255, 255, 255), (int(sfx_pos), self.sfx_volume_slider_rect.centery), 10)
 
-            # Afficher le pourcentage du volume
             font = pygame.font.Font(None, 36)
             volume_text = font.render(f"Volume: {int(self.game.music_volume * 100)}%", True, (255, 255, 255))
             screen.blit(volume_text, (300, 300))
@@ -284,101 +333,87 @@ class Menu:
 class Game:
     def __init__(self):
         pygame.init()
-        pygame.mixer.init()  # Initialiser le mixeur audio
+        pygame.mixer.init()
         self.screen = pygame.display.set_mode((800, 600))
-        pygame.display.set_caption("PVZ Game")
+        pygame.display.set_caption("Christmas Defense")
         self.clock = pygame.time.Clock()
         self.running = True
         self.state = 1
-        self.sound_enabled = True  # Ajout du flag pour le son
-        self.music_volume = 0.3  # Volume pour la musique
-        self.sfx_volume = 0.35    # Volume pour les effets sonores
+        self.sound_enabled = True
+        self.music_volume = 0.3
+        self.sfx_volume = 0.35
         self.menu = Menu(self)
         self.in_game = False
         self.tcp_client = None
         self.is_solo = False
         self.game_state = None
-        self.game_instance = None  # Instance de Game du serveur
-        self.last_zombie_spawn = 0  # Pour suivre le temps depuis le dernier zombie
+        self.game_instance = None
+        self.last_zombie_spawn = 0
         self.selected_plant = 'candycane'
         self.plant_buttons = []
-        self.sun_points = 0  # Ajout de l'attribut manquant
-        self.online_game_started = False # Ajouter ce flag
+        self.sun_points = 0
+        self.online_game_started = False
         self.last_update = time.time()
-        self.server_tick_rate = 20  # Même valeur que le serveur
+        self.server_tick_rate = 20
         self.is_attacker = False
         self.selected_zombie = 'basic'
         self.zombie_buttons = []
-        self.prev_game_state = None  # Pour l'interpolation
-        self.prev_update_time = time.time()  # Pour l'interpolation
-        self.paused = False  # Ajouter l'état de pause
+        self.prev_game_state = None
+        self.prev_update_time = time.time()
+        self.paused = False
+        self.pause_start_time = 0
+        self.total_pause_time = 0
+        self.game_start_time = 0
 
-        # Charger les images (à adapter selon vos assets)
         self.images = {
             'background': pygame.Surface((800, 600)),
             'grid_cell': pygame.Surface((80, 80)),
         }
 
-        # Définir des couleurs temporaires pour les surfaces
         self.images['background'] = pygame.image.load('client/assets/background.png')
-        self.images['grid_cell'].fill((80, 140, 80))   # Vert clair
+        self.images['grid_cell'].fill((80, 140, 80))
         self.images['sprinter'] = pygame.transform.scale(pygame.image.load('client/assets/sprinter.png'), (80, 140))
         self.selected_plant = 'candycane'
         self.plant_buttons = []
 
         candycane_sprite = pygame.image.load('client/assets/candycane.png')
-        # Créer des surfaces avec canal alpha
         self.images['candycane'] = pygame.Surface((80, 80), pygame.SRCALPHA)
         self.images['candycane_ready'] = pygame.Surface((80, 80), pygame.SRCALPHA)
-        # Copier la partie gauche pour l'état inactif
         self.images['candycane'].blit(candycane_sprite, (0, 0), (0, 0, 80, 80))
         self.images['candycane'] = pygame.transform.scale(self.images['candycane'], (100, 100))
-        # Copier la partie droite pour l'état actif
         self.images['candycane_ready'].blit(candycane_sprite, (0, 0), (80, 0, 160, 80))
         self.images['candycane_ready'] = pygame.transform.scale(self.images['candycane_ready'], (100, 100))
 
-        # Modification du chargement de l'image icewall
         icewall_sprite = pygame.image.load('client/assets/icewall.png')
-        # Créer des surfaces avec canal alpha pour les deux états
-        self.images['icewall'] = pygame.Surface((80, 140), pygame.SRCALPHA)
-        self.images['icewall_hit'] = pygame.Surface((80, 140), pygame.SRCALPHA)
-        # Copier la partie gauche pour l'état normal
-        self.images['icewall'].blit(icewall_sprite, (0, 0), (0, 0, 80, 140))
-        self.images['icewall'] = pygame.transform.scale(self.images['icewall'], (120, 140))
-        # Copier la partie droite pour l'état touché
-        self.images['icewall_hit'].blit(icewall_sprite, (0, 0), (80, 0, 160, 140))
-        self.images['icewall_hit'] = pygame.transform.scale(self.images['icewall_hit'], (120, 140))
+        self.images['icewall'] = {}
+        self.images['icewall_hit'] = {}
+        self.icewall_states = {}
 
-        # Ajouter un dictionnaire pour suivre l'état des icewalls
-        self.icewall_states = {}  # {(row, col): {'hit_time': time}}
+        for health_state in range(3):
+            self.images['icewall'][health_state] = pygame.Surface((80, 120), pygame.SRCALPHA)
+            self.images['icewall'][health_state].blit(icewall_sprite, (0, 0), (0, health_state * 120, 80, 120))
+            self.images['icewall'][health_state] = pygame.transform.scale(self.images['icewall'][health_state], (120, 120))
 
-        # Ajouter une image pour les projectiles
+            self.images['icewall_hit'][health_state] = pygame.Surface((80, 120), pygame.SRCALPHA)
+            self.images['icewall_hit'][health_state].blit(icewall_sprite, (0, 0), (80, health_state * 120, 160, 120))
+            self.images['icewall_hit'][health_state] = pygame.transform.scale(self.images['icewall_hit'][health_state], (120, 120))
+
         self.images['pea'] = pygame.transform.scale(pygame.image.load('client/assets/snowball.png'), (30, 30))
         self.images['energy_icon'] = pygame.Surface((30, 30))
-        self.images['energy_icon'].fill((255, 0, 0))  # Rouge pour l'énergie
-
-        # Définir les images pour les zombies disponibles
-        # count = 1
-        # for zombie_type in ZOMBIE_TYPES:
-        #     self.images[f'{zombie_type}'] = pygame.Surface((60, 60))
-        #     self.images[f'{zombie_type}'].fill((60 * count, 60 * count, 60 * count))
-        #     count += 1
+        self.images['energy_icon'].fill((255, 0, 0))
 
         self.images['shovel'] = pygame.Surface((60, 60))
-        self.images['shovel'].fill((139, 69, 19))  # Marron
+        self.images['shovel'].fill((139, 69, 19))
 
-        # Charger les musiques
         self.menu_music = pygame.mixer.Sound('client/music/Crazy_Dave.mp3')
         self.game_music = pygame.mixer.Sound('client/music/Loonboon.mp3')
         self.lose_music = pygame.mixer.Sound('client/music/losemusic.ogg')
         self.current_music = None
 
-        # Configuration du volume
         self.menu_music.set_volume(self.music_volume if self.sound_enabled else 0)
         self.game_music.set_volume(self.music_volume if self.sound_enabled else 0)
         self.lose_music.set_volume(self.music_volume if self.sound_enabled else 0)
 
-        # Charger sound effect
         self.splat = pygame.mixer.Sound('client/soundEffect/splat.ogg')
         self.point = pygame.mixer.Sound('client/soundEffect/points.ogg')
 
@@ -393,61 +428,70 @@ class Game:
         self.waiting_text = self.waiting_font.render("En attente d'un autre joueur...", True, (255, 255, 255))
         self.waiting_rect = self.waiting_text.get_rect(center=(400, 300))
 
-        # Modification du chargement de l'image cone
-        cone_sprite = pygame.image.load('client/assets/cone.png')
-        self.images['cone'] = []  # Liste pour stocker les frames d'animation
-        # Découper le sprite sheet en 3 frames
-        for i in range(3):
-            frame = pygame.Surface((80, 80), pygame.SRCALPHA)
-            frame.blit(cone_sprite, (0, 0), (i * 80, 0, 80, 80))
-            frame = pygame.transform.scale(frame, (130, 140))  # Redimensionner
-            self.images['cone'].append(frame)
+        self.zombie_animations = {}
+        self.animation_speed = 0.2
 
-        # Ajouter un dictionnaire pour suivre l'état d'animation des zombies
-        self.zombie_animations = {}  # {zombie_id: {'frame': 0, 'timer': 0}}
-        self.animation_speed = 0.2  # Secondes par frame
+        self.ICEWALL_HIT_DURATION = 0.3
+        self.ICEWALL_HIT_COOLDOWN = 1.0
 
-        # Après l'initialisation de self.icewall_states
-        self.ICEWALL_HIT_DURATION = 0.3  # Durée de l'animation de hit
-        self.ICEWALL_HIT_COOLDOWN = 1.0  # Délai minimum entre deux animations
-
-        # Modification du chargement de l'image basic
-        basic_sprite = pygame.image.load('client/assets/basic.png')
-        self.images['basic'] = []  # Liste pour stocker les frames d'animation
-        # Découper le sprite sheet en 4 frames
-        for i in range(4):
-            frame = pygame.Surface((80, 140), pygame.SRCALPHA)
-            frame.blit(basic_sprite, (0, 0), (i * 80, 0, 80, 140))
-            frame = pygame.transform.scale(frame, (120, 210))  # Redimensionner
-            self.images['basic'].append(frame)
-            
-        bucket_sprite = pygame.image.load('client/assets/krampus.png')
-        self.images['bucket'] = []  # Liste pour stocker les frames d'animation
-        # Découper le sprite sheet en 4 frames
-        for i in range(4):
-            frame = pygame.Surface((80, 140), pygame.SRCALPHA)
-            frame.blit(bucket_sprite, (0, 0), (i * 80, 0, 80, 140))
-            frame = pygame.transform.scale(frame, (130, 220))  # Redimensionner
-            self.images['bucket'].append(frame)
-
-        # Modification du chargement de l'image peashooter
         peashooter_sprite = pygame.image.load('client/assets/shooter.png')
-        self.images['peashooter'] = []  # Liste pour stocker les frames d'animation
-        # Découper le sprite sheet en 5 frames
+        self.images['peashooter'] = []
         for i in range(5):
             frame = pygame.Surface((80, 80), pygame.SRCALPHA)
             frame.blit(peashooter_sprite, (0, 0), (i * 80, 0, 80, 80))
             frame = pygame.transform.scale(frame, (120, 120))
             self.images['peashooter'].append(frame)
 
-        # Ajouter un dictionnaire pour suivre l'état des peashooters
-        self.peashooter_states = {}  # {(row, col): {'shooting': bool, 'frame': int, 'last_update': time}}
+        self.peashooter_states = {}
+
+        self.cards_image = pygame.image.load('client/assets/cartes.png')
+        self.plant_cards = []
+        self.zombie_cards = []
+
+        self.basic_sprite = pygame.image.load('client/assets/basic.png')
+        self.cone_sprite = pygame.image.load('client/assets/cone.png')
+        self.bucket_sprite = pygame.image.load('client/assets/krampus.png')
+
+        self.basic_attack_sprite = pygame.image.load('client/assets/basic_att.png')
+        self.cone_attack_sprite = pygame.image.load('client/assets/cone_att.png')
+        self.bucket_attack_sprite = pygame.image.load('client/assets/krampus_att.png')
+
+        self.zombie_attack_states = {}
+
+        self.images['basic'] = []
+        self.images['cone'] = []
+        self.images['bucket'] = []
+
+        for i in range(4):
+            frame = pygame.Surface((80, 80), pygame.SRCALPHA)
+            frame.blit(self.basic_sprite, (0, 0), (i * 80, 0, 80, 80))
+            frame = pygame.transform.scale(frame, (120, 140))
+            self.images['basic'].append(frame)
+
+        for i in range(3):
+            frame = pygame.Surface((80, 80), pygame.SRCALPHA)
+            frame.blit(self.cone_sprite, (0, 0), (i * 80, 0, 80, 80))
+            frame = pygame.transform.scale(frame, (130, 140))
+            self.images['cone'].append(frame)
+
+            frame = pygame.Surface((80, 140), pygame.SRCALPHA)
+            frame.blit(self.bucket_sprite, (0, 0), (i * 80, 0, 80, 140))
+            frame = pygame.transform.scale(frame, (130, 130))
+            self.images['bucket'].append(frame)
+
+        self.pause_button = Button(700, 20, 80, 40, "||")
+
+        self.replay_button = Button(200, 400, 200, 50, "Rejouer")
+        self.end_quit_button = Button(450, 400, 200, 50, "Quitter")
+
+        self.interface_cards = pygame.image.load('client/assets/card.png')
+        self.interface_cards = pygame.transform.scale(self.interface_cards, (160, 140))
 
     def play_music(self, music):
         if self.current_music != music:
             if self.current_music:
                 self.current_music.stop()
-            music.play(-1)  # -1 pour jouer en boucle
+            music.play(-1)
             self.current_music = music
             self.current_music.set_volume(self.music_volume if self.sound_enabled else 0)
 
@@ -458,10 +502,8 @@ class Game:
 
     def toggle_sound(self):
         self.sound_enabled = not self.sound_enabled
-        # Mettre à jour le volume de la musique
         if self.current_music:
             self.current_music.set_volume(self.music_volume if self.sound_enabled else 0)
-        # Mettre à jour le volume des effets sonores
         for sound in [self.splat, self.point]:
             sound.set_volume(self.sfx_volume if self.sound_enabled else 0)
             self.set_sfx_volume(self.sfx_volume)
@@ -475,65 +517,108 @@ class Game:
         self.sfx_volume = max(0.0, min(1.0, volume))
 
         for sound in [self.splat, self.point]:
-            sound.set_volume(self.sfx_volume)
-        
-        # Mettre à jour les boutons du menu
+            sound.set_volume(self.sfx_volume if self.sound_enabled else 0)
+
         if hasattr(self, 'menu'):
             self.menu.update_buttons_volume()
-        
-        # Mettre à jour le volume pour les boutons de plantes et zombies
-        for _, btn in self.plant_buttons:
-            btn.buttonClick.set_volume(self.sfx_volume if self.sound_enabled else 0)
-        for _, btn in self.zombie_buttons:
-            btn.buttonClick.set_volume(self.sfx_volume if self.sound_enabled else 0)
+
+        if hasattr(self, 'plant_cards'):
+            for _, card in self.plant_cards:
+                if hasattr(card, 'buttonClick'):
+                    card.buttonClick.set_volume(self.sfx_volume if self.sound_enabled else 0)
+
+        if hasattr(self, 'zombie_cards'):
+            for _, card in self.zombie_cards:
+                if hasattr(card, 'buttonClick'):
+                    card.buttonClick.set_volume(self.sfx_volume if self.sound_enabled else 0)
 
     def create_plant_buttons(self):
-        self.plant_buttons = []
-        x, y = 20, 60
-        # Utiliser les points de soleil du game_state au lieu de self.sun_points
+        self.plant_cards = []
+        x, y = 50, 35
         current_sun = self.game_state.get('sun_points', 0) if self.game_state else 0
 
         for plant_type in self.game_state.get('available_plants', []):
             cost = PLANT_TYPES[plant_type]['cost']
-            btn = Button(x, y, 100, 40, f"{plant_type}\n{cost}", 
-                        (100, 100, 100) if current_sun >= cost else (50, 50, 50))
-            self.plant_buttons.append((plant_type, btn))
-            y += 50
+            card = Card(x, y, plant_type, 'plant', cost)
+            card.buttonClick.set_volume(self.sfx_volume if self.sound_enabled else 0)
+            self.plant_cards.append((plant_type, card))
+            x += 85
 
-        # Ajouter le bouton pelle après les autres boutons
-        shovel_btn = Button(x, y, 100, 40, "Pelle", (139, 69, 19))
-        self.plant_buttons.append(('shovel', shovel_btn))
+        shovel_card = Card(x, y, 'shovel', 'plant', 0)
+        shovel_card.buttonClick.set_volume(self.sfx_volume if self.sound_enabled else 0)
+        self.plant_cards.append(('shovel', shovel_card))
 
     def create_zombie_buttons(self):
-        self.zombie_buttons = []
-        x, y = 20, 60
+        self.zombie_cards = []
+        x, y = 50, 35
         current_energy = self.game_state.get('energy', 0) if self.game_state else 0
 
         for zombie_type, stats in ZOMBIE_TYPES.items():
-            cost = stats.get('cost', 50)  # Par défaut 50 d'énergie
-            btn = Button(x, y, 100, 40, f"{zombie_type}\n{cost}", 
-                        (100, 100, 100) if current_energy >= cost else (50, 50, 50))
-            self.zombie_buttons.append((zombie_type, btn))
-            y += 50
+            cost = stats.get('cost', 50)
+            card = Card(x, y, zombie_type, 'zombie', cost)
+            card.buttonClick.set_volume(self.sfx_volume if self.sound_enabled else 0)
+            self.zombie_cards.append((zombie_type, card))
+            x += 85
+
+        dead_card = Card(x, y, 'dead', 'zombie', 0)
+        dead_card.buttonClick.set_volume(self.sfx_volume if self.sound_enabled else 0)
+        self.zombie_cards.append(('dead', dead_card))
 
     def draw_game(self):
-        # Dessiner le fond
         self.screen.blit(self.images['background'], (0, 0))
 
-        # Dessiner les entités si le jeu est en cours
+        font = pygame.font.Font(None, 36)
+
+        plant_energy_card = pygame.Surface((160, 47), pygame.SRCALPHA)
+        plant_energy_card.blit(self.interface_cards, (0, 0), (0, 0, 160, 47))
+        plant_energy_card = pygame.transform.scale(plant_energy_card, (170, 47))
+        self.screen.blit(plant_energy_card, (410, 35))
+
+        if not self.is_attacker:
+            sun_points = self.game_state.get('sun_points', 0) if self.game_state else 0
+            sun_text = font.render(f"{sun_points}", True, (255, 255, 255))
+            self.screen.blit(sun_text, (510, 47))
+
+        time_card = pygame.Surface((160, 47), pygame.SRCALPHA)
+        time_card.blit(self.interface_cards, (0, 0), (0, 47, 160, 94))
+        time_card = pygame.transform.scale(time_card, (170, 47))
+        self.screen.blit(time_card, (410, 85))
+
+        if self.game_state and self.game_state.get('game_over', False):
+            elapsed_time = max(0, int(self.game_state.get('end_time', time.time() - self.game_start_time)))
+        else:
+            current_time = time.time()
+            pause_duration = self.total_pause_time
+            if self.paused:
+                pause_duration += (current_time - self.pause_start_time)
+            elapsed_time = max(0, int(current_time - self.game_start_time - pause_duration))
+
+        minutes = elapsed_time // 60
+        seconds = elapsed_time % 60
+        time_text = font.render(f"{minutes:02d}:{seconds:02d}", True, (255, 255, 255))
+        self.screen.blit(time_text, (495, 97))
+
+        if self.is_attacker:
+            zombie_energy_card = pygame.Surface((160, 47), pygame.SRCALPHA)
+            zombie_energy_card.blit(self.interface_cards, (0, 0), (0, 94, 160, 140))
+            zombie_energy_card = pygame.transform.scale(zombie_energy_card, (170, 47))
+            self.screen.blit(zombie_energy_card, (410, 35))
+
+            zombie_energy = self.game_state.get('energy', 0) if self.game_state else 0
+            energy_text = font.render(f"{zombie_energy}", True, (255, 255, 255))
+            self.screen.blit(energy_text, (510, 47))
+
+        self.draw_buttons()
+
         if self.game_state:
             self.draw_plants()
             self.draw_projectiles()
             self.draw_zombies()
 
-        # Afficher les ressources selon le rôle
-        self.draw_resources()
-
-        # Dessiner les boutons pour attaquant ou défenseur
-        self.draw_buttons()
-
-        # Afficher le message de fin de jeu si nécessaire
         self.draw_end_game_message()
+
+        if self.is_solo:
+            self.pause_button.draw(self.screen)
 
     def draw_plants(self):
         """Dessine les plantes sur la grille."""
@@ -549,6 +634,7 @@ class Game:
             elif plant['type'] == 'icewall':
                 plant_image = self.get_icewall_image(plant)
                 y -= 20
+                x -= 5
             elif plant['type'] == 'peashooter':
                 plant_image = self.get_peashooter_image(plant)
             else:
@@ -570,6 +656,8 @@ class Game:
                     x, y = self.interpolate_zombie_position(prev_zombie, zombie, alpha)
                     if prev_zombie['type'] == 'cone':
                         y -= 20
+                    elif prev_zombie['type'] == 'bucket':
+                        y -= 20
                 else:
                     x = self.grid_start_x + (zombie['col'] * self.cell_size) + 5
                     y = self.grid_start_y + ((zombie['row'] - 1) * self.cell_size)
@@ -590,30 +678,24 @@ class Game:
             y = self.grid_start_y + (proj['row'] * self.cell_size) + 25
             self.screen.blit(self.images['pea'], (x, y))
 
-    def draw_resources(self):
-        """Affiche les ressources (énergie ou points de soleil) en haut de l'écran."""
-        font = pygame.font.Font(None, 36)
-        if self.is_attacker:
-            energy_text = font.render(f"Energy: {self.game_state.get('energy', 0)}", True, (255, 0, 0))
-            self.screen.blit(energy_text, (20, 20))
-        else:
-            sun_text = font.render(f"CandyCane: {self.game_state.get('sun_points', 0)}", True, (255, 255, 0))
-            self.screen.blit(sun_text, (20, 20))
-
     def draw_buttons(self):
-        """Dessine les boutons pour attaquant ou défenseur."""
+        """Dessine les cartes pour l'attaquant ou le défenseur."""
         if self.is_attacker:
             self.create_zombie_buttons()
-            for zombie_type, btn in self.zombie_buttons:
-                btn.draw(self.screen)
-                if zombie_type == self.selected_zombie:
-                    pygame.draw.rect(self.screen, (255, 0, 0), btn.rect, 3)
+            current_energy = self.game_state.get('energy', 0) if self.game_state else 0
+            for zombie_type, card in self.zombie_cards:
+                cost = 0 if zombie_type == 'dead' else ZOMBIE_TYPES[zombie_type]['cost']
+                card.draw(self.screen, self.cards_image,
+                        zombie_type == self.selected_zombie,
+                        current_energy >= cost)
         else:
             self.create_plant_buttons()
-            for plant_type, btn in self.plant_buttons:
-                btn.draw(self.screen)
-                if plant_type == self.selected_plant:
-                    pygame.draw.rect(self.screen, (255, 255, 0), btn.rect, 3)
+            current_sun = self.game_state.get('sun_points', 0) if self.game_state else 0
+            for plant_type, card in self.plant_cards:
+                cost = 0 if plant_type == 'shovel' else PLANT_TYPES[plant_type]['cost']
+                card.draw(self.screen, self.cards_image,
+                        plant_type == self.selected_plant,
+                        current_sun >= cost)
 
     def draw_end_game_message(self):
         """Dessine le message de fin de jeu si nécessaire."""
@@ -626,10 +708,19 @@ class Game:
                     text = font.render("VICTORY!", True, (0, 255, 0)) if self.game_state.get('winner') == 'att' else None
                 else:
                     text = font.render("GAME OVER", True, (255, 0, 0)) if self.game_state.get('winner') == 'att' else None
+
             if text:
+                overlay = pygame.Surface((800, 600))
+                overlay.fill((0, 0, 0))
+                overlay.set_alpha(128)
+                self.screen.blit(overlay, (0, 0))
+
                 text_rect = text.get_rect(center=(400, 300))
                 self.screen.blit(text, text_rect)
-    
+
+                self.replay_button.draw(self.screen)
+                self.end_quit_button.draw(self.screen)
+
     def draw_glow(self, x, y):
         """Dessine un effet de lueur autour d'une plante prête à être récoltée."""
         glow_surface = pygame.Surface((self.cell_size, self.cell_size), pygame.SRCALPHA)
@@ -638,35 +729,41 @@ class Game:
 
 
     def get_icewall_image(self, plant):
-        """Renvoie l'image appropriée pour une IceWall, avec animation en cas d'attaque."""
+        """Renvoie l'image appropriée pour une IceWall, avec animation and état de santé."""
         current_time = time.time()
         plant_key = (plant['row'], plant['col'])
 
-        # Initialisation de l'état si nécessaire
         if plant_key not in self.icewall_states:
             self.icewall_states[plant_key] = {
                 'hit_time': 0,
                 'last_hit': 0,
-                'is_being_eaten': False,
+                'is_being_eaten': False
             }
 
         state = self.icewall_states[plant_key]
+
+        health_ratio = plant.get('health', 100) / PLANT_TYPES['icewall']['health']
+        if health_ratio > 0.66:
+            health_state = 0
+        elif health_ratio > 0.33:
+            health_state = 1
+        else:
+            health_state = 2
+
         is_being_eaten = any(
             zombie['row'] == plant['row'] and abs(zombie['col'] - plant['col']) <= 1
             for zombie in self.game_state.get('zombies', [])
         )
 
-        # Gérer l'état d'attaque
         if not self.paused and not self.game_state.get('game_over', False):
             if is_being_eaten and (current_time - state['last_hit'] > self.ICEWALL_HIT_COOLDOWN):
                 state['hit_time'] = current_time
                 state['last_hit'] = current_time
-                return self.images['icewall_hit']
+                return self.images['icewall_hit'][health_state]
             elif current_time - state['hit_time'] < self.ICEWALL_HIT_DURATION:
-                return self.images['icewall_hit']
+                return self.images['icewall_hit'][health_state]
 
-        # Retour à l'état normal
-        return self.images['icewall']
+        return self.images['icewall'][health_state]
 
 
     def get_peashooter_image(self, plant):
@@ -674,11 +771,9 @@ class Game:
         plant_key = (plant['row'], plant['col'])
         current_time = time.time()
 
-        # S'assurer que self.images['peashooter'] est une liste
         if not isinstance(self.images['peashooter'], list):
             return self.images['peashooter']
 
-        # Initialisation de l'état si nécessaire
         if plant_key not in self.peashooter_states:
             self.peashooter_states[plant_key] = {
                 'shooting': False,
@@ -689,10 +784,8 @@ class Game:
         state = self.peashooter_states[plant_key]
         is_shooting = plant.get('shooting', False)
 
-        # Mettre à jour l'animation seulement si l'état change ou si on est en train de tirer
         if not self.paused and not self.game_state.get('game_over', False):
             if is_shooting and not state['shooting']:
-                # Démarrer une nouvelle animation
                 state['shooting'] = True
                 state['frame'] = 0
                 state['last_update'] = current_time
@@ -700,34 +793,79 @@ class Game:
                 if current_time - state['last_update'] > 0.1:
                     state['frame'] = (state['frame'] + 1) % len(self.images['peashooter'])
                     state['last_update'] = current_time
-                    # Arrêter l'animation après un cycle complet
                     if state['frame'] == 0:
                         state['shooting'] = False
 
-        # Si on ne tire pas, utiliser la frame 0
         if not state['shooting']:
             return self.images['peashooter'][0]
-        
+
         return self.images['peashooter'][state['frame']]
 
 
     def get_zombie_image(self, zombie, z_id=None):
-        """Renvoie l'image appropriée pour un zombie, avec gestion de l'animation."""
+        """Renvoie l'image appropriée pour un zombie, avec gestion de l'animation and de la santé."""
         if z_id and z_id not in self.zombie_animations:
             self.zombie_animations[z_id] = {'frame': 0, 'timer': time.time()}
+            self.zombie_attack_states[z_id] = {'attacking': False, 'frame': 0, 'last_update': time.time()}
 
         anim = self.zombie_animations.get(z_id, {'frame': 0, 'timer': time.time()})
-        if not self.paused and not self.game_state.get('game_over', False):
-            current_time = time.time()
-            if current_time - anim['timer'] > self.animation_speed:
-                anim['frame'] = (anim['frame'] + 1) % len(self.images[zombie['type']])
-                anim['timer'] = current_time
+        attack_state = self.zombie_attack_states.get(z_id, {'attacking': False, 'frame': 0, 'last_update': time.time()})
 
-        return self.images[zombie['type']][anim['frame']]
+        is_attacking = False
+        if not self.paused and not self.game_state.get('game_over', False):
+            if zombie['is_eating']:
+                is_attacking = True
+
+        attack_state['attacking'] = is_attacking
+
+        current_time = time.time()
+        if not self.paused and not self.game_state.get('game_over', False):
+            if is_attacking:
+                if current_time - attack_state['last_update'] > self.animation_speed:
+                    attack_state['frame'] = (attack_state['frame'] + 1) % 3
+                    attack_state['last_update'] = current_time
+            else:
+                if current_time - anim['timer'] > self.animation_speed:
+                    anim['frame'] = (anim['frame'] + 1) % len(self.images[zombie['type']])
+                    anim['timer'] = current_time
+
+
+        health_ratio = zombie.get('health', 100) / ZOMBIE_TYPES[zombie['type']]['health']
+        if health_ratio > 0.66:
+            sprite_y = 0
+        elif health_ratio > 0.33:
+            sprite_y = 80
+        else:
+            sprite_y = 160
+
+        frame = pygame.Surface((80, 80), pygame.SRCALPHA)
+
+        if is_attacking:
+            if zombie['type'] == 'basic':
+                frame.blit(self.basic_attack_sprite, (0, 0), (attack_state['frame'] * 80, sprite_y, 80, 80))
+                frame = pygame.transform.scale(frame, (130, 130))
+            elif zombie['type'] == 'cone':
+                frame.blit(self.cone_attack_sprite, (0, 0), (attack_state['frame'] * 80, sprite_y, 80, 80))
+                frame = pygame.transform.scale(frame, (130, 140))
+            elif zombie['type'] == 'bucket':
+                frame.blit(self.bucket_attack_sprite, (0, 0), (attack_state['frame'] * 80, sprite_y, 80, 140))
+                frame = pygame.transform.scale(frame, (130, 130))
+        else:
+            if zombie['type'] == 'basic':
+                frame.blit(self.basic_sprite, (0, 0), (anim['frame'] * 80, sprite_y, 80, 80))
+                frame = pygame.transform.scale(frame, (130, 130))
+            elif zombie['type'] == 'cone':
+                frame.blit(self.cone_sprite, (0, 0), (anim['frame'] * 80, sprite_y, 80, 80))
+                frame = pygame.transform.scale(frame, (130, 140))
+            elif zombie['type'] == 'bucket':
+                frame.blit(self.bucket_sprite, (0, 0), (anim['frame'] * 80, sprite_y, 80, 140))
+                frame = pygame.transform.scale(frame, (130, 140))
+
+        return frame
 
 
     def interpolate_zombie_position(self, prev_zombie, curr_zombie, alpha):
-        """Interpole la position d'un zombie entre son état précédent et actuel."""
+        """Interpole la position d'un zombie entre son état précédent and actuel."""
         prev_col = prev_zombie['col']
         curr_col = curr_zombie['col']
         interp_col = prev_col + (curr_col - prev_col) * alpha
@@ -738,51 +876,40 @@ class Game:
 
 
     def draw_pause_menu(self):
-        # Assombrir l'écran de jeu
         overlay = pygame.Surface((800, 600))
         overlay.fill((0, 0, 0))
         overlay.set_alpha(150)
         self.screen.blit(overlay, (0, 0))
 
-        # Dessiner le menu de pause
-        font = pygame.font.Font(None, 50)
-        pause_text = font.render("PAUSE", True, (0, 0, 0))
-        resume_text = font.render("press ECHAP to resume", True, (0, 0, 0))
-        quit_text = font.render("Q pour quitter", True, (0, 0, 0))
+        if not hasattr(self, 'pause_state'):
+            self.pause_state = "main"
 
-        pause_rect = pause_text.get_rect(center=(400, 200))
-        resume_rect = resume_text.get_rect(center=(400, 300))
-        quit_rect = quit_text.get_rect(center=(400, 400))
+        if self.pause_state == "main":
+            self.menu.resume_button.draw(self.screen)
+            self.menu.pause_options_button.draw(self.screen)
+            self.menu.quit_to_menu_button.draw(self.screen)
+        else:
+            font = pygame.font.Font(None, 36)
+            music_text = font.render(f"Volume Musique: {int(self.music_volume * 100)}%", True, (255, 255, 255))
+            sfx_text = font.render(f"Volume Effets: {int(self.sfx_volume * 100)}%", True, (255, 255, 255))
 
-        self.screen.blit(pause_text, pause_rect)
-        self.screen.blit(resume_text, resume_rect)
-        self.screen.blit(quit_text, quit_rect)
+            pygame.draw.rect(self.screen, (100, 100, 100), self.menu.volume_slider_rect2)
+            pygame.draw.rect(self.screen, (100, 100, 100), self.menu.sfx_volume_slider_rect)
 
-        # Ajouter l'affichage des contrôles de volume
-        font = pygame.font.Font(None, 36)
-        music_text = font.render(f"Volume Musique: {int(self.music_volume * 100)}%", True, (255, 255, 255))
-        sfx_text = font.render(f"Volume Effets: {int(self.sfx_volume * 100)}%", True, (255, 255, 255))
+            music_pos = self.menu.volume_slider_rect2.x + (self.menu.volume_slider_rect2.width * self.music_volume)
+            sfx_pos = self.menu.sfx_volume_slider_rect.x + (self.menu.sfx_volume_slider_rect.width * self.sfx_volume)
+            pygame.draw.circle(self.screen, (255, 255, 255), (int(music_pos), self.menu.volume_slider_rect2.centery), 10)
+            pygame.draw.circle(self.screen, (255, 255, 255), (int(sfx_pos), self.menu.sfx_volume_slider_rect.centery), 10)
 
-        # Dessiner les sliders
-        pygame.draw.rect(self.screen, (100, 100, 100), self.menu.volume_slider_rect2)
-        pygame.draw.rect(self.screen, (100, 100, 100), self.menu.sfx_volume_slider_rect)
-
-        # Dessiner les positions actuelles des sliders
-        music_pos = self.menu.volume_slider_rect2.x + (self.menu.volume_slider_rect2.width * self.music_volume)
-        sfx_pos = self.menu.sfx_volume_slider_rect.x + (self.menu.sfx_volume_slider_rect.width * self.sfx_volume)
-        pygame.draw.circle(self.screen, (255, 255, 255), (int(music_pos), self.menu.volume_slider_rect2.centery), 10)
-        pygame.draw.circle(self.screen, (255, 255, 255), (int(sfx_pos), self.menu.sfx_volume_slider_rect.centery), 10)
-
-        self.screen.blit(music_text, (300, 225))
-        self.screen.blit(sfx_text, (300, 325))
+            self.screen.blit(music_text, (300, 225))
+            self.screen.blit(sfx_text, (300, 325))
+            self.menu.back_to_main_button.draw(self.screen)
 
     def render(self):
         if self.in_game:
             self.screen.fill((0, 0, 0))
             if not self.is_solo and not self.online_game_started:
-                # Afficher l'écran d'attente
                 self.screen.blit(self.waiting_text, self.waiting_rect)
-                # Ajouter une animation de points qui défilent
                 dots = "." * (int(time.time() * 2) % 4)
                 dots_text = self.waiting_font.render(dots, True, (255, 255, 255))
                 dots_rect = dots_text.get_rect(midleft=self.waiting_rect.midright)
@@ -808,7 +935,9 @@ class Game:
         self.prev_game_state = None
         self.last_update = time.time()
         self.prev_update_time = time.time()
-        self.zombie_animations = {}  # Réinitialiser les animations
+        self.zombie_animations = {}
+        self.pause_start_time = 0
+        self.total_pause_time = 0
 
     def set_tcp_client(self, client):
         self.tcp_client = client
@@ -833,6 +962,8 @@ class Game:
         self.game_instance = ServerGame(is_solo=True)
         self.game_state = self.game_instance.get_game_state()
         self.play_music(self.game_music)
+        self.game_start_time = time.time()
+        self.last_update = self.game_start_time
 
     def start_online_mode(self):
         self.is_solo = False
@@ -845,12 +976,13 @@ class Game:
 
     def update(self):
         if self.paused:
-            return  # Ne pas mettre à jour le jeu si en pause
+            return
 
         if self.game_state and self.game_state.get('game_over', False):
-            # Si c'est la première fois qu'on détecte le game over
             if self.current_music != self.lose_music:
                 self.play_music(self.lose_music)
+            if 'end_time' not in self.game_state:
+                self.game_state['end_time'] = int(time.time() - self.game_start_time - self.total_pause_time)
             return
 
         current_time = time.time()
@@ -864,19 +996,18 @@ class Game:
             if hasattr(self.game_instance, 'last_hit') and self.game_instance.last_hit:
                 self.play_sound_effect(self.splat)
                 self.game_instance.last_hit = False
-            
+
             self.game_state = self.game_instance.get_game_state()
-            
+
         elif self.online_game_started and self.game_instance:
             if delta_time >= 1.0/self.server_tick_rate:
                 self.prev_game_state = self.game_state
                 self.prev_update_time = current_time
                 self.game_instance.update(delta_time)
-                # Vérifier si un zombie a été touché
                 if hasattr(self.game_instance, 'last_hit') and self.game_instance.last_hit:
                     self.play_sound_effect(self.splat)
                     self.game_instance.last_hit = False
-                
+
                 self.game_state = self.game_instance.get_game_state()
                 self.last_update = current_time
             else:
@@ -888,26 +1019,57 @@ class Game:
                 self.running = False
                 return False
 
+            if self.paused and self.is_solo and event.type == pygame.MOUSEBUTTONDOWN:
+                mouse_pos = pygame.mouse.get_pos()
+                if self.pause_state == "main":
+                    if self.menu.resume_button.rect.collidepoint(mouse_pos):
+                        self.play_sound_effect(self.menu.resume_button.buttonClick)
+                        self.paused = False
+                    elif self.menu.pause_options_button.rect.collidepoint(mouse_pos):
+                        self.play_sound_effect(self.menu.pause_options_button.buttonClick)
+                        self.pause_state = "options"
+                    elif self.menu.quit_to_menu_button.rect.collidepoint(mouse_pos):
+                        self.play_sound_effect(self.menu.quit_to_menu_button.buttonClick)
+                        self.in_game = False
+                        self.menu.current_menu = "main"
+                        self.reset_game_state()
+                        self.play_music(self.menu_music)
+                        self.paused = False
+                        return True
+                elif self.pause_state == "options":
+                    if self.menu.back_to_main_button.rect.collidepoint(mouse_pos):
+                        self.play_sound_effect(self.menu.back_to_main_button.buttonClick)
+                        self.pause_state = "main"
+                    elif self.menu.volume_slider_rect2.collidepoint(mouse_pos):
+                        rel_x = (mouse_pos[0] - self.menu.volume_slider_rect2.x) / self.menu.volume_slider_rect2.width
+                        self.set_volume(rel_x)
+                    elif self.menu.sfx_volume_slider_rect.collidepoint(mouse_pos):
+                        rel_x = (mouse_pos[0] - self.menu.sfx_volume_slider_rect.x) / self.menu.sfx_volume_slider_rect.width
+                        self.set_sfx_volume(rel_x)
+                return True
+
             if event.type == pygame.KEYDOWN:
-                # Gérer le retour au menu quand le jeu est terminé
                 if event.key == pygame.K_ESCAPE and self.game_state and self.game_state.get('game_over', False):
                     self.in_game = False
                     self.menu.current_menu = "main"
-                    self.reset_game_state()  # Réinitialiser l'état du jeu
-                    self.play_music(self.menu_music)  # Remettre la musique du menu
+                    self.reset_game_state()
+                    self.play_music(self.menu_music)
                     return True
 
-                # Gérer la pause en mode solo
                 if self.is_solo and self.in_game:
                     if event.key == pygame.K_ESCAPE:
                         if self.game_state and self.game_state.get('game_over', False):
                             self.in_game = False
                             self.menu.current_menu = "main"
                             self.reset_game_state()
-                            self.play_music(self.menu_music)  # Ne pas oublier de remettre la musique du menu
+                            self.play_music(self.menu_music)
                             return True
                         else:
                             self.paused = not self.paused
+                            if self.paused:
+                                self.pause_start_time = time.time()
+                            else:
+                                self.total_pause_time += time.time() - self.pause_start_time
                     elif event.key == pygame.K_q and self.paused:
                         self.in_game = False
                         self.menu.current_menu = "main"
@@ -916,20 +1078,48 @@ class Game:
                         self.paused = False
                         return True
 
-            # Si le jeu est terminé, permettre de retourner au menu avec ÉCHAP
 
             if not self.in_game or self.paused:
                 self.menu.handle_event(event)
                 continue
 
             if self.in_game and event.type == pygame.MOUSEBUTTONDOWN:
+                if self.game_state and self.game_state.get('game_over', False):
+                    mouse_pos = pygame.mouse.get_pos()
+                    if self.replay_button.rect.collidepoint(mouse_pos):
+                        if self.is_solo:
+                            self.start_solo_mode()
+                        else:
+                            if self.tcp_client:
+                                self.tcp_client.shutdown()
+                            self.tcp_client = None
+                            self.game_instance = None
+                            self.game_state = None
+                            self.online_game_started = False
+                            self.start_online_mode()
+                        return True
+                    elif self.end_quit_button.rect.collidepoint(mouse_pos):
+                        if not self.is_solo and self.tcp_client:
+                            self.tcp_client.shutdown()
+                            self.tcp_client = None
+                        self.in_game = False
+                        self.menu.current_menu = "main"
+                        self.reset_game_state()
+                        self.play_music(self.menu_music)
+                        return True
+                    return True
+
                 mouse_pos = pygame.mouse.get_pos()
 
+                if self.is_solo and self.pause_button.rect.collidepoint(mouse_pos):
+                    self.play_sound_effect(self.pause_button.buttonClick)
+                    self.paused = not self.paused
+                    return True
+
                 if self.is_attacker:
-                    # Gestion des clics pour l'attaquant
                     button_clicked = False
-                    for zombie_type, btn in self.zombie_buttons:
-                        if btn.is_clicked(mouse_pos):
+                    for zombie_type, card in self.zombie_cards:
+                        if card.is_clicked(mouse_pos):
                             self.selected_zombie = zombie_type
                             button_clicked = True
                             break
@@ -938,42 +1128,38 @@ class Game:
                         col = (mouse_pos[0] - self.grid_start_x) // self.cell_size
                         row = (mouse_pos[1] - self.grid_start_y) // self.cell_size
 
-                        if (0 <= row < GRID_HEIGHT and col == GRID_WIDTH - 1):  # Spawn uniquement sur la dernière colonne
-                            if (0 <= row < GRID_HEIGHT and col == GRID_WIDTH - 1):  # Spawn uniquement sur la dernière colonne
+                        if (0 <= row < GRID_HEIGHT and col == GRID_WIDTH - 1):
+                            if (0 <= row < GRID_HEIGHT and col == GRID_WIDTH - 1):
                                 if self.online_game_started and self.tcp_client.udp_client:
                                     message = f"ADD_ZOMBIE:{self.selected_zombie}:{row}"
                                     self.tcp_client.udp_client.send_message(message)
                 else:
-                    # Gestion défenseur
                     button_clicked = False
 
                     col = (mouse_pos[0] - self.grid_start_x) // self.cell_size
                     row = (mouse_pos[1] - self.grid_start_y) // self.cell_size
 
-                    # Vérifier si on clique sur une plante existante
                     if (0 <= row < GRID_HEIGHT and 0 <= col < GRID_WIDTH):
                         for plant in self.game_state.get('plants', []):
-                            if (plant['row'] == row and plant['col'] == col and 
-                                plant['type'] == 'candycane' and 
+                            if (plant['row'] == row and plant['col'] == col and
+                                plant['type'] == 'candycane' and
                                 plant.get('ready_to_harvest', False)):
 
                                 if self.is_solo:
-                                    # Mode solo
                                     sun_points = self.game_instance.plants[
-                                        next(i for i, p in enumerate(self.game_instance.plants) 
+                                        next(i for i, p in enumerate(self.game_instance.plants)
                                             if p.row == row and p.col == col)
                                     ].harvest()
-                                    if sun_points > 0:  # Si la récolte a réussi
-                                        self.play_sound_effect(self.point)  # Jouer le son
+                                    if sun_points > 0:
+                                        self.play_sound_effect(self.point)
                                     self.game_instance.sun_points += sun_points
                                     self.game_state = self.game_instance.get_game_state()
                                 elif self.online_game_started and self.tcp_client.udp_client:
-                                    # Mode online
                                     message = f"HARVEST_SUNFLOWER:{row}:{col}"
                                     self.tcp_client.udp_client.send_message(message)
                                 return True
-                    for plant_type, btn in self.plant_buttons:
-                        if btn.is_clicked(mouse_pos):
+                    for plant_type, card in self.plant_cards:
+                        if card.is_clicked(mouse_pos):
                             self.selected_plant = plant_type
                             button_clicked = True
                             break
@@ -990,12 +1176,17 @@ class Game:
                                 elif self.online_game_started and self.tcp_client.udp_client:
                                     message = f"REMOVE_PLANT:{row}:{col}"
                                     self.tcp_client.udp_client.send_message(message)
+                            elif self.selected_zombie == 'dead':
+                                if self.is_solo:
+                                    if self.game_instance.remove_zombie(row):
+                                        self.game_state = self.game_instance.get_game_state()
+                                elif self.online_game_started and self.tcp_client.udp_client:
+                                    message = f"REMOVE_ZOMBIE:{row}"
+                                    self.tcp_client.udp_client.send_message(message)
                             else:
-                                # Code existant pour placer une plante
                                 if self.is_solo:
                                     plant_placed = self.game_instance.add_plant(self.selected_plant, row, col)
                                     if plant_placed and self.selected_plant == 'icewall':
-                                        # Initialiser correctement l'état de l'icewall avec toutes les clés nécessaires
                                         self.icewall_states[(row, col)] = {
                                             'hit_time': 0,
                                             'last_hit': 0,
@@ -1006,6 +1197,56 @@ class Game:
                                 elif self.online_game_started and self.tcp_client.udp_client:
                                     message = f"ADD_PLANT:{self.selected_plant}:{row}:{col}"
                                     self.tcp_client.udp_client.send_message(message)
+
+            if self.paused and self.is_solo:
+                mouse_pos = pygame.mouse.get_pos()
+                if event.type == pygame.MOUSEBUTTONDOWN:
+                    if hasattr(self, 'pause_state') and self.pause_state == "main":
+                        if self.menu.resume_button.is_clicked(mouse_pos):
+                            self.paused = False
+                        elif self.menu.pause_options_button.is_clicked(mouse_pos):
+                            self.pause_state = "options"
+                        elif self.menu.quit_to_menu_button.is_clicked(mouse_pos):
+                            self.in_game = False
+                            self.menu.current_menu = "main"
+                            self.reset_game_state()
+                            self.play_music(self.menu_music)
+                            self.paused = False
+                            return True
+                    elif hasattr(self, 'pause_state') and self.pause_state == "options":
+                        if self.menu.back_to_main_button.is_clicked(mouse_pos):
+                            self.pause_state = "main"
+                        elif self.menu.volume_slider_rect2.collidepoint(mouse_pos):
+                            rel_x = (mouse_pos[0] - self.menu.volume_slider_rect2.x) / self.menu.volume_slider_rect2.width
+                            self.set_volume(rel_x)
+                        elif self.menu.sfx_volume_slider_rect.collidepoint(mouse_pos):
+                            rel_x = (mouse_pos[0] - self.menu.sfx_volume_slider_rect.x) / self.menu.sfx_volume_slider_rect.width
+                            self.set_sfx_volume(rel_x)
+
+            if self.game_state and self.game_state.get('game_over', False) and event.type == pygame.MOUSEBUTTONDOWN:
+                mouse_pos = pygame.mouse.get_pos()
+
+                if self.replay_button.rect.collidepoint(mouse_pos):
+                    if self.is_solo:
+                        self.start_solo_mode()
+                    else:
+                        if self.tcp_client:
+                            self.tcp_client.shutdown()
+                        self.tcp_client = None
+                        self.game_instance = None
+                        self.game_state = None
+                        self.online_game_started = False
+                        self.start_online_mode()
+                    return True
+                elif self.end_quit_button.rect.collidepoint(mouse_pos):
+                    if not self.is_solo and self.tcp_client:
+                        self.tcp_client.shutdown()
+                        self.tcp_client = None
+                    self.in_game = False
+                    self.menu.current_menu = "main"
+                    self.reset_game_state()
+                    self.play_music(self.menu_music)
+                    return True
 
         return True
 
@@ -1034,7 +1275,7 @@ class TCPClient(TCPConnection):
         print("\n[CLIENT] Starting shutdown...")
         self.running = False
         if self.game:
-            self.game.reset_game_state()  # Réinitialiser l'état du jeu à la déconnexion
+            self.game.reset_game_state()
 
         if self.socket:
             try:
@@ -1054,21 +1295,18 @@ class TCPClient(TCPConnection):
                 if not message:
                     print("[TCP] Server disconnected")
                     break
-                print(f"[TCP] Received: {message}")
+                # print(f"[TCP] Received: {message}")
 
                 if message.startswith("STATE:"):
                     state = int(message.split(":")[1])
                     self.game.state = state
                     if state == 1:
-                        # Init le jeu en mode online quand on reçoit STATE:1
                         from shared.game import Game as ServerGame
                         self.game.game_instance = ServerGame(is_solo=False)
                         self.game.game_state = self.game.game_instance.get_game_state()
                     print(f"[TCP] State: {state}")
                 if message.startswith("ID:"):
                     self.client_id = message.split(":")[1]
-                    # else:
-                    #     self.join_room("public")
                 elif message.startswith("UDP:"):
                     _, host, port = message.split(":")
                     print(f"[TCP] Connecting to UDP {host}:{port}")
@@ -1087,7 +1325,7 @@ class UDPClient(UDPConnection):
         super().__init__(host, port)
         self.running = True
         self.receive_thread = None
-        self.game = game  # Référence au jeu
+        self.game = game
         self.start_receiving()
 
     def start_receiving(self):
@@ -1100,53 +1338,47 @@ class UDPClient(UDPConnection):
             try:
                 message, _ = self.socket.recvfrom(1024)
                 decoded_message = message.decode()
-                print(f"[UDP] Received: {decoded_message}")
+                # print(f"[UDP] Received: {decoded_message}")
 
                 if decoded_message == "STATE:2":
                     self.game.online_game_started = True
-                    self.game.last_update = time.time()  # Initialiser le timer
+                    self.game.last_update = time.time()
                     print("[UDP] Game starting!")
                 elif decoded_message.startswith("ROLE:"):
                     role = decoded_message.split(":")[1]
                     self.game.is_attacker = (role == "att")
-                    print(f"[UDP] Role assigned: {'Attacker' if self.game.is_attacker else 'Defender'}")
+                    # print(f"[UDP] Role assigned: {'Attacker' if self.game.is_attacker else 'Defender'}")
                 elif decoded_message.startswith("GAME_STATE:"):
                     self.handle_game_state(decoded_message)
                 elif decoded_message.startswith("ADD_PLANT:"):
-                    print(f"[UDP] Plant added: {decoded_message}")
+                    # print(f"[UDP] Plant added: {decoded_message}")
                     _, plant_type, row, col = decoded_message.split(":")
-                    # Appliquer l'action à l'instance locale du jeu
                     self.game.game_instance.add_plant(plant_type, int(row), int(col))
-                    # Mettre à jour l'état du jeu
                     self.game.game_state = self.game.game_instance.get_game_state()
                 elif decoded_message.startswith("ADD_ZOMBIE:"):
-                    print(f"[UDP] Zombie added: {decoded_message}")
+                    # print(f"[UDP] Zombie added: {decoded_message}")
                     _, zombie_type, row = decoded_message.split(":")
-                    # Appliquer l'action à l'instance locale du jeu
                     self.game.game_instance.add_zombie(zombie_type, int(row))
-                    # Mettre à jour l'état du jeu
                     self.game.game_state = self.game.game_instance.get_game_state()
                 elif decoded_message.startswith("REMOVE_PLANT:"):
-                    print(f"[UDP] Plant removed: {decoded_message}")
+                    # print(f"[UDP] Plant removed: {decoded_message}")
                     _, row, col = decoded_message.split(":")
-                    # Appliquer l'action à l'instance locale du jeu
                     self.game.game_instance.remove_plant(int(row), int(col))
-                    # Mettre à jour l'état du jeu
-                    self.game.game_state = self.game_instance.get_game_state()
+                    self.game.game_state = self.game.game_instance.get_game_state()
                 elif decoded_message.startswith("REMOVE_PLANT:"):
-                    print(f"[UDP] Plant removed: {decoded_message}")
+                    # print(f"[UDP] Plant removed: {decoded_message}")
                     _, row, col = decoded_message.split(":")
                     self.game.game_instance.remove_plant(int(row), int(col))
-                    self.game.game_state = self.game_instance.get_game_state()
+                    self.game.game_state = self.game.game_instance.get_game_state()
                 elif decoded_message.startswith("HARVEST_SUNFLOWER:"):
-                    print(f"[UDP] Sunflower harvested: {decoded_message}")
+                    # print(f"[UDP] Sunflower harvested: {decoded_message}")
                     _, row, col = decoded_message.split(":")
                     sun_points = self.game.game_instance.plants[
-                        next(i for i, p in enumerate(self.game.game_instance.plants) 
+                        next(i for i, p in enumerate(self.game.game_instance.plants)
                             if p.row == int(row) and p.col == int(col))
                     ].harvest()
                     if sun_points > 0:
-                        self.game.play_sound_effect(self.game.point)  # Jouer le son
+                        self.game.play_sound_effect(self.game.point)
                     self.game.game_instance.sun_points += sun_points
                     self.game.game_state = self.game.game_instance.get_game_state()
                 elif decoded_message.startswith("SYSTEM:"):
@@ -1160,7 +1392,7 @@ class UDPClient(UDPConnection):
             game_state_str = message.split("GAME_STATE:", 1)[1]
             import ast
             game_state = ast.literal_eval(game_state_str)
-            self.game.game_state = game_state  # Met à jour l'état du jeu
+            self.game.game_state = game_state
         except Exception as e:
             print(f"[UDP] Error parsing game state: {e}")
 
@@ -1168,7 +1400,7 @@ class UDPClient(UDPConnection):
         if not self.running:
             return
         try:
-            print(f"[UDP] Sending: {message}")
+            # print(f"[UDP] Sending: {message}")
             self.socket.sendto(message.encode(), (self.host, self.port))
         except Exception as e:
             if self.running:
@@ -1194,7 +1426,7 @@ def main():
 
     try:
         game = Game()
-        game.play_music(game.menu_music)  # Démarrer la musique du menu
+        game.play_music(game.menu_music)
         while game.running:
             if not game.handle_events():
                 break
