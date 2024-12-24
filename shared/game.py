@@ -141,7 +141,7 @@ class Game:
         return 'basic'
 
     def spawn_zombie_wave(self, current_time: int) -> None:
-        wave_size = 5 + self.difficulty_level * 2
+        wave_size = 2 + (self.difficulty_level - 1) * 2
         for i in range(wave_size):
             zombie_type = self.choose_zombie_type()
             row = random.randint(0, GRID_HEIGHT - 1)
