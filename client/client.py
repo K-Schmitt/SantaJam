@@ -12,6 +12,15 @@ from shared.protocol import TCPConnection, UDPConnection
 from shared.constants import GRID_WIDTH, GRID_HEIGHT, PLANT_TYPES, ZOMBIE_TYPES
 import random
 
+def resource_path(relative_path):
+    """Obtenir le chemin absolu pour accéder aux ressources."""
+    try:
+        base_path = sys._MEIPASS
+    except AttributeError:
+        base_path = os.path.abspath(".")
+    return os.path.join(base_path, relative_path)
+
+
 class Button:
     def __init__(self, x, y, width, height, text, color=(100, 100, 100)):
         self.rect = pygame.Rect(x, y, width, height)
@@ -20,7 +29,7 @@ class Button:
         self.font = pygame.font.Font(None, 36)
         self.candy_cane_offset = 0
         self.segment_length = 10
-        self.buttonClick = pygame.mixer.Sound('client/soundEffect/buttonclick.ogg')
+        self.buttonClick = pygame.mixer.Sound(resource_path(os.path.join('client', 'soundEffect', 'buttonclick.ogg')))
         self.buttonClick.set_volume(0.35)
 
     def draw(self, screen):
@@ -73,7 +82,7 @@ class Card:
         self.entity_group = entity_group
         self.cost = cost
         self.sprite_rect = pygame.Rect(0, 0, 100, 100)
-        self.buttonClick = pygame.mixer.Sound('client/soundEffect/buttonclick.ogg')
+        self.buttonClick = pygame.mixer.Sound(resource_path(os.path.join('client', 'soundEffect', 'buttonclick.ogg')))
         self.buttonClick.set_volume(0.35)
 
     def draw(self, screen, cards_image, is_selected, can_afford):
@@ -370,13 +379,13 @@ class Game:
             'grid_cell': pygame.Surface((80, 80)),
         }
 
-        self.images['background'] = pygame.image.load('client/assets/background.png')
+        self.images['background'] = pygame.image.load(resource_path(os.path.join('client', 'assets', 'background.png')))
         self.images['grid_cell'].fill((80, 140, 80))
-        self.images['sprinter'] = pygame.transform.scale(pygame.image.load('client/assets/sprinter.png'), (80, 140))
+        self.images['sprinter'] = pygame.transform.scale(pygame.image.load(resource_path(os.path.join('client', 'assets', 'sprinter.png'))), (80, 140))
         self.selected_plant = 'candycane'
         self.plant_buttons = []
 
-        candycane_sprite = pygame.image.load('client/assets/candycane.png')
+        candycane_sprite = pygame.image.load(resource_path(os.path.join('client', 'assets', 'candycane.png')))
         self.images['candycane'] = pygame.Surface((80, 80), pygame.SRCALPHA)
         self.images['candycane_ready'] = pygame.Surface((80, 80), pygame.SRCALPHA)
         self.images['candycane'].blit(candycane_sprite, (0, 0), (0, 0, 80, 80))
@@ -384,7 +393,7 @@ class Game:
         self.images['candycane_ready'].blit(candycane_sprite, (0, 0), (80, 0, 160, 80))
         self.images['candycane_ready'] = pygame.transform.scale(self.images['candycane_ready'], (100, 100))
 
-        icewall_sprite = pygame.image.load('client/assets/icewall.png')
+        icewall_sprite = pygame.image.load(resource_path(os.path.join('client', 'assets', 'icewall.png')))
         self.images['icewall'] = {}
         self.images['icewall_hit'] = {}
         self.icewall_states = {}
@@ -398,24 +407,24 @@ class Game:
             self.images['icewall_hit'][health_state].blit(icewall_sprite, (0, 0), (80, health_state * 120, 160, 120))
             self.images['icewall_hit'][health_state] = pygame.transform.scale(self.images['icewall_hit'][health_state], (120, 120))
 
-        self.images['pea'] = pygame.transform.scale(pygame.image.load('client/assets/snowball.png'), (30, 30))
+        self.images['pea'] = pygame.transform.scale(pygame.image.load(resource_path(os.path.join('client', 'assets', 'snowball.png'))), (30, 30))
         self.images['energy_icon'] = pygame.Surface((30, 30))
         self.images['energy_icon'].fill((255, 0, 0))
 
         self.images['shovel'] = pygame.Surface((60, 60))
         self.images['shovel'].fill((139, 69, 19))
 
-        self.menu_music = pygame.mixer.Sound('client/music/Crazy_Dave.mp3')
-        self.game_music = pygame.mixer.Sound('client/music/Loonboon.mp3')
-        self.lose_music = pygame.mixer.Sound('client/music/losemusic.ogg')
+        self.menu_music = pygame.mixer.Sound(resource_path(os.path.join('client', 'music', 'Crazy_Dave.mp3')))
+        self.game_music = pygame.mixer.Sound(resource_path(os.path.join('client', 'music', 'Loonboon.mp3')))
+        self.lose_music = pygame.mixer.Sound(resource_path(os.path.join('client', 'music', 'losemusic.ogg')))
         self.current_music = None
 
         self.menu_music.set_volume(self.music_volume if self.sound_enabled else 0)
         self.game_music.set_volume(self.music_volume if self.sound_enabled else 0)
         self.lose_music.set_volume(self.music_volume if self.sound_enabled else 0)
 
-        self.splat = pygame.mixer.Sound('client/soundEffect/splat.ogg')
-        self.point = pygame.mixer.Sound('client/soundEffect/points.ogg')
+        self.splat = pygame.mixer.Sound(resource_path(os.path.join('client', 'soundEffect', 'splat.ogg')))
+        self.point = pygame.mixer.Sound(resource_path(os.path.join('client', 'soundEffect', 'points.ogg')))
 
         self.splat.set_volume(self.sfx_volume if self.sound_enabled else 0)
         self.point.set_volume(self.sfx_volume if self.sound_enabled else 0)
@@ -434,7 +443,7 @@ class Game:
         self.ICEWALL_HIT_DURATION = 0.3
         self.ICEWALL_HIT_COOLDOWN = 1.0
 
-        peashooter_sprite = pygame.image.load('client/assets/shooter.png')
+        peashooter_sprite = pygame.image.load(resource_path(os.path.join('client', 'assets', 'shooter.png')))
         self.images['peashooter'] = []
         for i in range(5):
             frame = pygame.Surface((80, 80), pygame.SRCALPHA)
@@ -444,17 +453,17 @@ class Game:
 
         self.peashooter_states = {}
 
-        self.cards_image = pygame.image.load('client/assets/cartes.png')
+        self.cards_image = pygame.image.load(resource_path(os.path.join('client', 'assets', 'cartes.png')))
         self.plant_cards = []
         self.zombie_cards = []
 
-        self.basic_sprite = pygame.image.load('client/assets/basic.png')
-        self.cone_sprite = pygame.image.load('client/assets/cone.png')
-        self.bucket_sprite = pygame.image.load('client/assets/krampus.png')
+        self.basic_sprite = pygame.image.load(resource_path(os.path.join('client', 'assets', 'basic.png')))
+        self.cone_sprite = pygame.image.load(resource_path(os.path.join('client', 'assets', 'cone.png')))
+        self.bucket_sprite = pygame.image.load(resource_path(os.path.join('client', 'assets', 'krampus.png')))
 
-        self.basic_attack_sprite = pygame.image.load('client/assets/basic_att.png')
-        self.cone_attack_sprite = pygame.image.load('client/assets/cone_att.png')
-        self.bucket_attack_sprite = pygame.image.load('client/assets/krampus_att.png')
+        self.basic_attack_sprite = pygame.image.load(resource_path(os.path.join('client', 'assets', 'basic_att.png')))
+        self.cone_attack_sprite = pygame.image.load(resource_path(os.path.join('client', 'assets', 'cone_att.png')))
+        self.bucket_attack_sprite = pygame.image.load(resource_path(os.path.join('client', 'assets', 'krampus_att.png')))
 
         self.zombie_attack_states = {}
 
@@ -484,7 +493,7 @@ class Game:
         self.replay_button = Button(200, 400, 200, 50, "Rejouer")
         self.end_quit_button = Button(450, 400, 200, 50, "Quitter")
 
-        self.interface_cards = pygame.image.load('client/assets/card.png')
+        self.interface_cards = pygame.image.load(resource_path(os.path.join('client', 'assets', 'card.png')))
         self.interface_cards = pygame.transform.scale(self.interface_cards, (160, 140))
 
     def play_music(self, music):
@@ -1309,6 +1318,9 @@ class TCPClient(TCPConnection):
                     self.client_id = message.split(":")[1]
                 elif message.startswith("UDP:"):
                     _, host, port = message.split(":")
+                    # Remplace l'adresse 0.0.0.0 par 127.0.0.1 pour le client
+                    if host == '0.0.0.0':
+                        host = '127.0.0.1'
                     print(f"[TCP] Connecting to UDP {host}:{port}")
                     self.udp_client = UDPClient(host, int(port), self.game)
                     self.udp_client.send_message(f"CONNECT:{self.client_id}")
@@ -1436,10 +1448,13 @@ def main():
 
     except Exception as e:
         print(f"[CLIENT] Error: {e}")
+        import traceback
+        traceback.print_exc()  # Ajout du traceback complet pour le débogage
     finally:
-        if hasattr(game, 'tcp_client') and game.tcp_client:
+        if 'game' in locals() and hasattr(game, 'tcp_client') and game.tcp_client:
             game.tcp_client.shutdown()
-        game.cleanup()
+        if 'game' in locals():
+            game.cleanup()
         print("[CLIENT] Disconnected")
 
 if __name__ == "__main__":

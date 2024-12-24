@@ -71,7 +71,7 @@ class UDPServer(UDPConnection):
 class Room:
     def __init__(self, room_id, udp_host, udp_port):
         self.room_id = room_id
-        self.udp_host = udp_host
+        self.udp_host = '127.0.0.1'
         self.udp_port = udp_port
         self.clients = []
         try:
